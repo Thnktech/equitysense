@@ -3,11 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EquitySense | Smarter Portfolio Insights</title>
+    <title>EquitySense | Intelligent Portfolio Engine</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="app.js" defer></script>
 </head>
 <body>
@@ -25,11 +26,8 @@
                 <button class="nav-btn" data-tab="profile">
                     <i class="fa-solid fa-user-doctor"></i> Profile & Health
                 </button>
-                <button class="nav-btn" data-tab="sell">
-                    <i class="fa-solid fa-triangle-exclamation"></i> Sell Now?
-                </button>
                 <button class="nav-btn" data-tab="buy">
-                    <i class="fa-solid fa-cart-plus"></i> Buy Now?
+                    <i class="fa-solid fa-cart-plus"></i> Buy Candidates
                 </button>
                 <button class="nav-btn firewall-btn" data-tab="firewall">
                     <i class="fa-solid fa-fire-extinguisher"></i> Firewall
@@ -61,14 +59,26 @@
             </div>
         </aside>
 
-        <main class="main-content">
+        <main class="main-content" id="reportContent">
             
             <section id="portfolio" class="view active">
                 <header class="top-bar">
                     <h1>Portfolio Dashboard</h1>
                     <div class="actions">
-                        <button id="refreshBtn" class="btn-secondary">
-                            <i class="fa-solid fa-arrows-rotate"></i> Update All Prices
+                        <div class="currency-toggle">
+                            <span id="currLabel">USD</span>
+                            <label class="switch">
+                                <input type="checkbox" id="currencySwitch">
+                                <span class="slider round"></span>
+                            </label>
+                            <span>EUR</span>
+                        </div>
+                        
+                        <button id="exportPdfBtn" class="btn-outline" title="Save as PDF">
+                            <i class="fa-solid fa-file-pdf"></i> Report
+                        </button>
+                        <button id="updateAllBtn" class="btn-secondary">
+                            <i class="fa-solid fa-arrows-rotate"></i> Update All
                         </button>
                         <button id="addStockBtn" class="btn-primary">
                             <i class="fa-solid fa-plus"></i> Add Position
@@ -106,7 +116,7 @@
                     <div class="table-header">
                         <h3>Holdings <small id="lastUpdated" style="font-weight:400; font-size:0.8rem; margin-left:10px; color:var(--text-secondary)"></small></h3>
                         <div class="data-controls">
-                            <button id="exportBtn" class="btn-outline">Export</button>
+                            <button id="exportBtn" class="btn-outline">Export JSON</button>
                             <label class="btn-outline">Merge <input type="file" id="importMerge" hidden></label>
                             <label class="btn-outline">Replace <input type="file" id="importReplace" hidden></label>
                         </div>
@@ -127,17 +137,22 @@
             <section id="profile" class="view">
                 <header class="top-bar">
                     <h1>Profile & Health</h1>
-                    <button id="retakeQuizBtn" class="btn-outline hidden">Retake Analysis</button>
+                    <div class="actions">
+                        <select id="profileSort" class="btn-outline" style="width: auto; padding: 0.4rem;">
+                            <option value="score_desc">Sort: Score (High-Low)</option>
+                            <option value="score_asc">Sort: Score (Low-High)</option>
+                            <option value="alpha">Sort: A-Z</option>
+                        </select>
+                        <button id="retakeQuizBtn" class="btn-outline hidden">Retake Quiz</button>
+                    </div>
                 </header>
 
                 <div id="quizView" class="hidden">
                     <div class="card quiz-container">
-                        <div class="quiz-header">
-                            <h2><i class="fa-solid fa-dna"></i> Investor DNA Analysis</h2>
-                            <p class="text-muted">This 10-point psychometric assessment will classify your investing style and calibrate the entire application's risk engine to your personal psychology.</p>
-                        </div>
+                        <h2>Investor DNA Test</h2>
+                        <p class="text-muted">Answer 10 questions to calibrate your risk engine.</p>
                         <div id="quizQuestions"></div>
-                        <button id="submitQuizBtn" class="btn-primary full-width" style="margin-top:1.5rem; padding: 1rem;">Generate Comprehensive Profile</button>
+                        <button id="submitQuizBtn" class="btn-primary full-width" style="margin-top:1rem">Generate Profile</button>
                     </div>
                 </div>
 
@@ -145,8 +160,8 @@
                     <div class="card profile-summary">
                         <div class="profile-header">
                             <div>
-                                <small>Your Classification</small>
-                                <h2 id="profileTypeName">Long-Term Compounder</h2>
+                                <small>Current Classification</small>
+                                <h2 id="profileTypeName">...</h2>
                             </div>
                             <div class="profile-badge"><i class="fa-solid fa-dna"></i></div>
                         </div>
@@ -155,115 +170,53 @@
                     </div>
                     <div class="health-controls">
                         <h3>Portfolio Diagnostic</h3>
-                        <button id="runHealthCheckBtn" class="btn-primary"><i class="fa-solid fa-stethoscope"></i> Run Health Check</button>
                     </div>
                     <div id="healthGrid" class="health-grid">
-                        <div class="empty-state"><i class="fa-solid fa-user-doctor"></i><p>Run diagnostic to see profile fit.</p></div>
+                        <div class="empty-state"><i class="fa-solid fa-user-doctor"></i><p>Waiting for data update...</p></div>
                     </div>
-                </div>
-            </section>
-
-            <section id="sell" class="view">
-                <header class="top-bar">
-                    <h1>Sell Candidates</h1>
-                    <button id="runSellScanBtn" class="btn-danger"><i class="fa-solid fa-filter"></i> Scan Portfolio</button>
-                </header>
-                <div class="card note-card" style="border-left-color: var(--danger)">
-                    <p><i class="fa-solid fa-triangle-exclamation"></i> <strong>Priority Sort:</strong> Stocks are ranked by "Sell Urgency" (Fundamental deterioration + Overweight position).</p>
-                </div>
-                <div id="sellProfileAlert" class="card hidden" style="text-align:center; border:1px dashed var(--warning)">
-                    <h3>Profile Required</h3>
-                    <p>We need your Investor Profile to calculate rebalancing limits.</p>
-                    <button class="btn-primary goto-profile-btn" style="margin:10px auto">Take Quiz</button>
-                </div>
-                <div id="sellGrid" class="firewall-grid">
-                    <div class="empty-state"><i class="fa-solid fa-list-ol"></i><p>Click "Scan Portfolio" to identify candidates.</p></div>
                 </div>
             </section>
 
             <section id="buy" class="view">
-                <header class="top-bar">
-                    <h1>Buy Candidates</h1>
-                    <button id="runBuyScanBtn" class="btn-success"><i class="fa-solid fa-rocket"></i> Scan Portfolio</button>
-                </header>
+                <header class="top-bar"><h1>Buy Candidates</h1></header>
                 <div class="card note-card" style="border-left-color: var(--success)">
-                    <p><i class="fa-solid fa-arrow-trend-up"></i> <strong>Priority Sort:</strong> Stocks are ranked by "Quality" (Fundamental strength + Underweight position).</p>
-                </div>
-                <div id="buyProfileAlert" class="card hidden" style="text-align:center; border:1px dashed var(--warning)">
-                    <h3>Profile Required</h3>
-                    <p>We need your Investor Profile to suggest proper allocation sizes.</p>
-                    <button class="btn-primary goto-profile-btn" style="margin:10px auto">Take Quiz</button>
+                    <p><strong>Strategy:</strong> Identifies high-quality stocks (Score > 80) that are currently underweight in your portfolio.</p>
                 </div>
                 <div id="buyGrid" class="firewall-grid">
-                    <div class="empty-state"><i class="fa-solid fa-cart-plus"></i><p>Click "Scan Portfolio" to find winners.</p></div>
+                    <div class="empty-state"><i class="fa-solid fa-cart-plus"></i><p>Run "Update All" to scan opportunities.</p></div>
                 </div>
             </section>
 
             <section id="firewall" class="view">
                 <header class="top-bar">
                     <h1>Investment Firewall</h1>
-                    <button id="runAuditBtn" class="btn-primary"><i class="fa-solid fa-shield-virus"></i> Audit Portfolio</button>
+                    <button id="runAuditBtn" class="btn-primary"><i class="fa-solid fa-shield-virus"></i> Audit Thesis</button>
                 </header>
+                
+                <div class="card note-card">
+                    <p><strong>Core Philosophy:</strong> This engine evaluates if your original <em>Investment Thesis</em> is still valid. It checks metrics specifically against the "Pillars" you selected for each stock.</p>
+                </div>
+
                 <div id="firewallGrid" class="firewall-grid">
-                    <div class="empty-state"><i class="fa-solid fa-shield-virus"></i><p>Run Audit to see full risk breakdown.</p></div>
+                    <div class="empty-state"><i class="fa-solid fa-shield-halved"></i><p>Click "Audit Thesis" to verify if your investment premises still hold.</p></div>
                 </div>
             </section>
 
             <section id="docs" class="view">
-                <header class="top-bar"><h1>Documentation & Manual</h1></header>
+                <header class="top-bar"><h1>Documentation</h1></header>
                 <div class="docs-container">
                     <div class="card doc-block disclaimer">
-                        <h3 style="color:var(--warning)"><i class="fa-solid fa-triangle-exclamation"></i> Legal Disclaimer</h3>
-                        <p>This application is an educational tool designed to assist in portfolio organization and behavioral analysis. <strong>It does not provide financial advice.</strong></p>
-                        <ul class="doc-list">
-                            <li><strong>Data Accuracy:</strong> Market data is fetched via Alpha Vantage. We cannot guarantee real-time accuracy or uptime.</li>
-                            <li><strong>No Warranty:</strong> The "Firewall" scores are based on standard financial ratios (Peter Lynch/Buffett style) but do not guarantee future performance.</li>
-                            <li><strong>User Responsibility:</strong> You are solely responsible for your investment decisions. Always verify data with a broker.</li>
-                        </ul>
+                        <h3 style="color:var(--warning)"><i class="fa-solid fa-triangle-exclamation"></i> Disclaimer</h3>
+                        <p>This tool is for educational purposes only. It is not financial advice.</p>
                     </div>
-
                     <div class="card doc-block">
-                        <h2>🚀 Getting Started Guide</h2>
+                        <h2>🚀 How to Start</h2>
                         <ol class="doc-list">
-                            <li><strong>API Key Setup:</strong> To pull live data, you need a free API key from <a href="https://www.alphavantage.co/support/#api-key" target="_blank" style="color:var(--accent)">Alpha Vantage</a>. Enter it in the sidebar and click "Connect". Your key is saved locally in your browser session.</li>
-                            <li><strong>Building Your Portfolio:</strong> Navigate to the <strong>Portfolio</strong> tab. Click "Add Position". You must enter the Ticker Symbol (e.g., AAPL), your average buy price, and the number of shares.</li>
-                            <li><strong>Updating Prices:</strong> The app does not auto-refresh to save your API limits. Click the <strong>"Update All Prices"</strong> button in the Portfolio header to fetch the latest market data.</li>
+                            <li>Get a free API Key from Alpha Vantage.</li>
+                            <li>Connect via sidebar.</li>
+                            <li>Add stocks in Portfolio tab (Define your Thesis Pillars!).</li>
+                            <li>Click "Update All" to fetch data and generate reports.</li>
                         </ol>
-                    </div>
-
-                    <div class="card doc-block">
-                        <h2>🧠 Deep Dive: Features Explained</h2>
-                        
-                        <div class="feature-item">
-                            <h4>1. Investor Profile & Diagnostic</h4>
-                            <p>This is the brain of the application. The 10-question analysis determines your "Investor Type" (e.g., <em>Compounder, Risk Minimizer</em>). This profile dictates your <strong>Maximum Allocation Limits</strong> and <strong>Risk Tolerance Weights</strong> used in the Buy/Sell tabs.</p>
-                        </div>
-
-                        <div class="feature-item">
-                            <h4>2. The "Firewall" Logic</h4>
-                            <p>The firewall is a rules-based scoring engine (0-100) that ignores price action and focuses on business health. It evaluates:</p>
-                            <ul>
-                                <li><strong>Growth (30%):</strong> Is Revenue and EPS growing year-over-year? (>10% is ideal).</li>
-                                <li><strong>Profitability (30%):</strong> Is ROE > 15%? Are Operating Margins expanding?</li>
-                                <li><strong>Safety (20%):</strong> Is Debt-to-Equity < 0.5? (Low debt is safer).</li>
-                                <li><strong>Trend (20%):</strong> Is the price above the 200-Day Moving Average? (Bullish trend).</li>
-                            </ul>
-                        </div>
-
-                        <div class="feature-item">
-                            <h4>3. Buy Now? (Opportunity Scanner)</h4>
-                            <p>This tab finds the <strong>highest quality</strong> stocks in your portfolio that are currently <strong>underweight</strong>.</p>
-                            <p><em>Example:</em> If you are a "Concentrator" (allowed 25% per stock) and hold Google (Score 90) at only 5% allocation, this tab will signal <strong>"Add Aggressively"</strong>.</p>
-                        </div>
-
-                        <div class="feature-item">
-                            <h4>4. Sell Now? (Risk Scanner)</h4>
-                            <p>This tab highlights two types of sell signals:</p>
-                            <ul>
-                                <li><strong>Fundamental Decay:</strong> Stocks with Scores < 50 (Slowing growth, high debt).</li>
-                                <li><strong>Portfolio Risk:</strong> Stocks that are "Overweight" based on your profile (e.g., a "Diversifier" holding 30% in one stock will get a "Trim" alert).</li>
-                            </ul>
-                        </div>
                     </div>
                 </div>
             </section>
@@ -271,25 +224,9 @@
             <section id="about" class="view">
                 <header class="top-bar"><h1>About</h1></header>
                 <div class="card about-card">
-                    <div class="about-header">
-                        <div class="about-avatar"><i class="fa-solid fa-user-astronaut"></i></div>
-                        <div>
-                            <h2>Muthiah S</h2>
-                            <p class="text-muted">Lead Developer & Investor</p>
-                        </div>
-                    </div>
-                    <hr style="border-color:var(--border); margin: 1rem 0;">
-                    <div class="about-details">
-                        <p>EquitySense was built to solve the problem of emotional investing. By forcing a rules-based "Firewall" between market noise and your capital, this tool aims to help rational investors compound wealth over decades.</p>
-                        <br>
-                        <div class="contact-box">
-                            <i class="fa-solid fa-envelope"></i>
-                            <div>
-                                <small>Feedback & Support</small>
-                                <strong>thinkingtechie2020@gmail.com</strong>
-                            </div>
-                        </div>
-                    </div>
+                    <h2>XXXX</h2>
+                    <p>Lead Developer</p>
+                    <div class="contact-box">yyy@gmail.com</div>
                 </div>
             </section>
 
@@ -316,7 +253,18 @@
                         </select>
                     </div>
                 </div>
-                <div class="group"><label>Thesis</label><textarea id="mThesis" rows="3"></textarea></div>
+                
+                <div class="group">
+                    <label>Thesis Pillars (Select Key Drivers)</label>
+                    <div class="pillars-select">
+                        <label><input type="checkbox" name="pillar" value="growth"> Growth (Rev/EPS)</label>
+                        <label><input type="checkbox" name="pillar" value="moat"> Moat (Margins/ROE)</label>
+                        <label><input type="checkbox" name="pillar" value="safety"> Safety (Debt/Cash)</label>
+                        <label><input type="checkbox" name="pillar" value="value"> Value (P/E)</label>
+                    </div>
+                </div>
+
+                <div class="group"><label>Thesis Notes</label><textarea id="mThesis" rows="3" placeholder="Why do you own this?"></textarea></div>
                 <div class="modal-footer">
                     <button type="button" class="close-modal btn-text">Cancel</button>
                     <button type="submit" class="btn-primary">Save</button>
