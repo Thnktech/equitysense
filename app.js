@@ -1,10 +1,13 @@
 document.addEventListener('DOMContentLoaded', () => {
     console.log("System initializing...");
 
+    // --- STATE MANAGEMENT ---
     const Store = {
         portfolio: JSON.parse(localStorage.getItem('ep_portfolio')) || [],
         settings: JSON.parse(localStorage.getItem('ep_settings')) || { currency: 'USD' },
+        // Profile is now an object with behavior parameters
         profile: JSON.parse(localStorage.getItem('ep_profile')) || null,
+        auditLog: JSON.parse(localStorage.getItem('ep_audit')) || [],
         cache: JSON.parse(localStorage.getItem('ep_cache')) || {},
         exchangeRate: 1.0,
         
@@ -12,42 +15,80 @@ document.addEventListener('DOMContentLoaded', () => {
         setApiKey: (key) => sessionStorage.setItem('ep_api_key', key),
         savePortfolio: () => localStorage.setItem('ep_portfolio', JSON.stringify(Store.portfolio)),
         saveProfile: () => localStorage.setItem('ep_profile', JSON.stringify(Store.profile)),
+        saveAudit: () => localStorage.setItem('ep_audit', JSON.stringify(Store.auditLog)),
         saveCache: () => localStorage.setItem('ep_cache', JSON.stringify(Store.cache)),
         saveSettings: () => localStorage.setItem('ep_settings', JSON.stringify(Store.settings)),
         generateId: () => '_' + Math.random().toString(36).substr(2, 9)
     };
 
-    const InvestorTypes = {
-        "Compounder": { id: 1, name: "Long-Term Compounder", desc: "Maximizes long-term intrinsic value.", weights: { growth: 0.4, quality: 0.4, safety: 0.1, value: 0.1 }, pillars:['growth','moat'] },
-        "Redeployer": { id: 2, name: "Capital Redeployer", desc: "Reallocates capital to best opportunities.", weights: { value: 0.4, momentum: 0.2, growth: 0.2, safety: 0.2 }, pillars:['value','growth'] },
-        "CashConstrained": { id: 3, name: "Cash-Constrained", desc: "Grows capital with limited surplus.", weights: { safety: 0.5, value: 0.3, quality: 0.2, growth: 0.0 }, pillars:['safety','value'] },
-        "Income": { id: 4, name: "Income-Focused", desc: "Prioritizes stable cash flows.", weights: { dividend: 0.5, safety: 0.3, quality: 0.2, growth: 0.0 }, pillars:['safety'] },
-        "RiskMinimizer": { id: 5, name: "Risk-Minimizer", desc: "Capital preservation is paramount.", weights: { safety: 0.6, quality: 0.3, value: 0.1, growth: 0.0 }, pillars:['safety','moat'] },
-        "DrawdownSensitive": { id: 6, name: "Drawdown-Sensitive", desc: "Strict loss limits.", weights: { safety: 0.5, momentum: 0.2, quality: 0.3, growth: 0.0 }, pillars:['safety','value'] },
-        "TimeHorizon": { id: 7, name: "Time-Horizon Optimizer", desc: "Maximizes capital for future date.", weights: { growth: 0.5, quality: 0.3, value: 0.2, safety: 0.0 }, pillars:['growth'] },
-        "VolatilityAgnostic": { id: 8, name: "Volatility-Agnostic", desc: "CAGR above all else.", weights: { growth: 0.6, momentum: 0.2, value: 0.2, safety: 0.0 }, pillars:['growth','moat'] },
-        "LiquidityConstrained": { id: 9, name: "Liquidity-Constrained", desc: "Needs near-term access to cash.", weights: { safety: 0.4, quality: 0.4, momentum: 0.2, growth: 0.0 }, pillars:['safety'] },
-        "Concentrator": { id: 10, name: "Conviction-Weighted", desc: "Outsized returns via few bets.", weights: { quality: 0.5, growth: 0.3, value: 0.2, safety: 0.0 }, pillars:['growth','moat'] },
-        "Stabilizer": { id: 11, name: "Diversification-First", desc: "Reduces idiosyncratic risk.", weights: { safety: 0.4, quality: 0.4, value: 0.2, growth: 0.0 }, pillars:['safety','quality'] },
-        "ValuationAnchored": { id: 12, name: "Valuation-Anchored", desc: "Only buys with Margin of Safety.", weights: { value: 0.7, quality: 0.2, safety: 0.1, growth: 0.0 }, pillars:['value','safety'] },
-        "Systematic": { id: 13, name: "Rule-Bound Systematic", desc: "Strict adherence to rules.", weights: { quality: 0.3, value: 0.3, safety: 0.3, growth: 0.1 }, pillars:['value','moat'] },
-        "CycleTimer": { id: 14, name: "Opportunistic Cycle-Timer", desc: "Exploits market cycles.", weights: { value: 0.4, momentum: 0.4, quality: 0.2, safety: 0.0 }, pillars:['value','growth'] },
-        "PreservationPlus": { id: 15, name: "Capital-Preservation-Plus", desc: "Beat inflation, low risk.", weights: { safety: 0.7, quality: 0.2, dividend: 0.1, growth: 0.0 }, pillars:['safety','value'] }
-    };
+    // --- SCORING ENGINE (VECTOR) ---
+    const ScoringEngine = {
+        parse: (val) => {
+            if (val === "None" || val === "-" || val === "0" || val === 0) return 0;
+            return parseFloat(val) || 0;
+        },
+        // Returns a Vector of scores (0-10) instead of single number
+        calculateVector: (data, pillars) => {
+            const p = ScoringEngine.parse;
+            const vec = { quality: 0, growth: 0, safety: 0, valuation: 0, trend: 0, thesis: 0 };
+            
+            // Raw Metrics
+            const roe = p(data.ReturnOnEquityTTM) * 100;
+            const opMargin = p(data.OperatingMarginTTM) * 100;
+            const revG = p(data.QuarterlyRevenueGrowthYOY) * 100;
+            const epsG = p(data.QuarterlyEarningsGrowthYOY) * 100;
+            const debt = data.DebtToEquityRatio === "None" ? 0 : p(data.DebtToEquityRatio);
+            const pe = p(data.PERatio);
+            const price = p(data['50DayMovingAverage']);
+            const ma200 = p(data['200DayMovingAverage']);
 
-    const getRebalanceLimits = (typeKey) => {
-        if (!typeKey) return { max: 0.15 };
-        if (typeKey === "Concentrator" || typeKey === "Compounder") return { max: 0.25 };
-        if (typeKey === "RiskMinimizer" || typeKey === "Stabilizer") return { max: 0.10 };
-        return { max: 0.15 };
+            // 1. Quality (0-10)
+            if (roe > 20) vec.quality += 5; else if (roe > 10) vec.quality += 3;
+            if (opMargin > 20) vec.quality += 5; else if (opMargin > 10) vec.quality += 3;
+
+            // 2. Growth (0-10)
+            if (revG > 15) vec.growth += 5; else if (revG > 0) vec.growth += 2;
+            if (epsG > 15) vec.growth += 5; else if (epsG > 0) vec.growth += 2;
+
+            // 3. Safety (0-10)
+            if (debt < 0.5) vec.safety += 6; else if (debt < 1.0) vec.safety += 3;
+            // Quick ratio or current ratio proxies could be added here from Balance Sheet if available
+            // For now, assuming decent liquidity if debt is low.
+            vec.safety += 4; // Baseline assumption for non-bankrupt firms
+
+            // 4. Valuation (0-10) (Inverted: Lower PE is better)
+            if (pe > 0) {
+                if (pe < 15) vec.valuation = 10;
+                else if (pe < 25) vec.valuation = 7;
+                else if (pe < 40) vec.valuation = 4;
+                else vec.valuation = 1;
+            }
+
+            // 5. Trend (Risk Modifier)
+            if (price > ma200) vec.trend = 1; // Bullish context
+            else vec.trend = -1; // Bearish context
+
+            // 6. Thesis Check (Does it match pillars?)
+            let thesisMatches = 0;
+            if (pillars.includes('growth') && vec.growth > 6) thesisMatches++;
+            if (pillars.includes('quality') && vec.quality > 6) thesisMatches++;
+            if (pillars.includes('safety') && vec.safety > 6) thesisMatches++;
+            if (pillars.includes('value') && vec.valuation > 6) thesisMatches++;
+            
+            // Normalize Thesis Score (0-10)
+            const pillarCount = pillars.length || 1;
+            vec.thesis = Math.min(10, Math.round((thesisMatches / pillarCount) * 10));
+
+            return vec;
+        }
     };
 
     const API = {
         baseUrl: 'https://www.alphavantage.co/query',
         queue: [],
         isProcessing: false,
-        enqueue: (params, callback, errorCallback) => {
-            API.queue.push({ params, callback, errorCallback });
+        enqueue: (params, callback) => {
+            API.queue.push({ params, callback });
             UI.updateQueue(API.queue.length);
             API.process();
         },
@@ -58,6 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
             UI.updateQueue(API.queue.length, true);
             try {
                 let data;
+                // Cache OVERVIEW
                 if(task.params.function === 'OVERVIEW' && Store.cache[task.params.symbol] && (Date.now() - Store.cache[task.params.symbol].ts < 86400000)) {
                     data = Store.cache[task.params.symbol].data;
                 } else {
@@ -68,10 +110,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
                 task.callback(data);
-            } catch (err) {
-                if(task.errorCallback) task.errorCallback(err);
-                UI.toast(`API Error: ${err.message}`, 'error');
-            }
+            } catch (err) { console.error(err); UI.toast("API Error", "error"); }
+            
             let countdown = 120; 
             const timer = setInterval(() => {
                 countdown--;
@@ -86,21 +126,16 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         fetchData: async (params) => {
             const key = Store.getApiKey();
-            if (!key) throw new Error("Missing API Key");
+            if (!key) throw new Error("Missing Key");
             const url = `${API.baseUrl}?` + new URLSearchParams({ ...params, apikey: key });
             const res = await fetch(url);
-            const data = await res.json();
-            if (data.Note) throw new Error("API Limit Reached");
-            if (data['Error Message']) throw new Error("Invalid Ticker/Data");
-            return data;
+            return await res.json();
         },
         fetchExchangeRate: async () => {
             if (!Store.getApiKey()) return;
             try {
                 const data = await API.fetchData({ function: 'CURRENCY_EXCHANGE_RATE', from_currency: 'USD', to_currency: 'EUR' });
-                if(data['Realtime Currency Exchange Rate']) {
-                    Store.exchangeRate = parseFloat(data['Realtime Currency Exchange Rate']['5. Exchange Rate']);
-                }
+                if(data['Realtime Currency Exchange Rate']) Store.exchangeRate = parseFloat(data['Realtime Currency Exchange Rate']['5. Exchange Rate']);
             } catch(e) { Store.exchangeRate = 0.95; }
         }
     };
@@ -108,27 +143,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const UI = {
         toast: (msg, type = 'info') => {
             const el = document.createElement('div');
-            el.className = 'toast';
+            el.className = `toast`;
             el.style.borderLeftColor = type === 'error' ? 'var(--danger)' : 'var(--success)';
             el.innerText = msg;
             document.getElementById('toastContainer').appendChild(el);
             setTimeout(() => el.remove(), 4000);
         },
-        updateQueue: (count, active = false) => {
-            const lbl = document.getElementById('apiQueueLabel');
-            if(lbl) lbl.innerText = active ? `Processing... (${count} pending)` : 'Queue: Idle';
-        },
-        updateProgress: (pct) => {
-            const bar = document.getElementById('apiProgressBar');
-            if(bar) bar.style.width = `${pct}%`;
-        },
+        updateQueue: (count, active) => document.getElementById('apiQueueLabel').innerText = active ? `Processing (${count})...` : 'Queue: Idle',
+        updateProgress: (pct) => document.getElementById('apiProgressBar').style.width = `${pct}%`,
         fmtMoney: (n) => {
             let val = n;
             let code = 'USD';
-            if (Store.settings.currency === 'EUR') {
-                val = n * Store.exchangeRate;
-                code = 'EUR';
-            }
+            if (Store.settings.currency === 'EUR') { val = n * Store.exchangeRate; code = 'EUR'; }
             return new Intl.NumberFormat('en-US', { style: 'currency', currency: code }).format(val);
         },
         fmtPct: (n) => `${(n).toFixed(2)}%`,
@@ -156,9 +182,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td style="font-weight:700; font-family: var(--font-mono)">${stock.symbol}</td>
                     <td>${sShares}</td>
                     <td>${UI.fmtMoney(sPrice)}</td>
-                    <td style="color:${stock.currentPrice ? '' : 'var(--text-secondary)'}">
-                        ${stock.currentPrice ? UI.fmtMoney(sCurr) : 'Pending...'}
-                    </td>
+                    <td style="color:${stock.currentPrice ? '' : 'var(--text-secondary)'}">${stock.currentPrice ? UI.fmtMoney(sCurr) : 'Pending...'}</td>
                     <td>${UI.fmtMoney(val)}</td>
                     <td class="${ret > 0 ? 'positive' : (ret < 0 ? 'negative' : '')}">${UI.fmtPct(ret)}</td>
                     <td>${stock.conviction}</td>
@@ -177,133 +201,148 @@ document.addEventListener('DOMContentLoaded', () => {
             const retEl = document.getElementById('totalReturn');
             retEl.innerText = UI.fmtPct(ret);
             retEl.className = ret >= 0 ? 'positive' : 'negative';
+            
             App.updateCharts();
         }
     };
 
-    const ScoringEngine = {
-        parse: (val) => {
-            if (val === "None" || val === "-" || val === "0" || val === 0) return 0;
-            return parseFloat(val) || 0;
-        },
-        calculate: (data) => {
-            const p = ScoringEngine.parse;
-            const raw = {
-                revG: (p(data.QuarterlyRevenueGrowthYOY) * 100).toFixed(1),
-                epsG: (p(data.QuarterlyEarningsGrowthYOY) * 100).toFixed(1),
-                roe: (p(data.ReturnOnEquityTTM) * 100).toFixed(1),
-                margin: (p(data.OperatingMarginTTM) * 100).toFixed(1),
-                debt: data.DebtToEquityRatio === "None" ? 0 : p(data.DebtToEquityRatio),
-                ma200: p(data['200DayMovingAverage']),
-                price: p(data['50DayMovingAverage'])
-            };
-            let score = 0;
-            if (p(raw.revG) > 10) score += 15; else if (p(raw.revG) > 0) score += 10;
-            if (p(raw.epsG) > 10) score += 15; else if (p(raw.epsG) > 0) score += 5;
-            if (p(raw.roe) > 15) score += 15; else if (p(raw.roe) > 8) score += 10;
-            if (p(raw.margin) > 20) score += 15; else if (p(raw.margin) > 10) score += 10;
-            if (raw.debt < 0.5) score += 20; else if (raw.debt < 1.0) score += 10;
-            if (raw.price > raw.ma200) score += 20;
-            return { score, raw };
-        }
-    };
-
     const ProfileEngine = {
-        init: () => {
-            if (Store.profile) {
-                ProfileEngine.renderDashboard();
-            } else {
-                ProfileEngine.renderQuiz();
-            }
-            document.getElementById('submitQuizBtn').addEventListener('click', ProfileEngine.processQuiz);
-            document.getElementById('retakeQuizBtn').addEventListener('click', () => { Store.profile = null; Store.saveProfile(); ProfileEngine.renderQuiz(); });
-            document.getElementById('runHealthCheckBtn').addEventListener('click', ProfileEngine.runHealthCheck);
-            document.querySelectorAll('.goto-profile-btn').forEach(b => b.addEventListener('click', () => { document.querySelector('.nav-btn[data-tab="profile"]').click(); }));
+        // Defaults: Neutral Value Investor
+        defaultParams: {
+            name: "Neutral Value (Default)",
+            maxAlloc: 0.15,
+            riskTolerance: "moderate",
+            pillars: ['value', 'quality'] 
         },
-        renderQuiz: () => {
-            document.getElementById('quizView').classList.remove('hidden');
-            document.getElementById('profileDashboard').classList.add('hidden');
-            document.getElementById('retakeQuizBtn').classList.add('hidden');
-            const qs = [
-                { l: "1. Primary Goal?", o: [["growth","Multi-Generational Wealth"], ["income","Steady Passive Income"], ["safety","Capital Preservation"], ["trend","Beating the Market"]] },
-                { l: "2. Market Crash (-30%) Reaction?", o: [["buy","Buy Aggressively"], ["hold","Do Nothing"], ["check","Re-evaluate Thesis"], ["sell","Sell to Protect"]] },
-                { l: "3. Liquidity Needs?", o: [["none","Locked for 10+ Years"], ["low","Might need in 3-5 Years"], ["high","Need access < 1 Year"]] },
-                { l: "4. Management Style?", o: [["active","Daily/Weekly"], ["passive","Quarterly/Yearly"]] },
-                { l: "5. Metric Focus?", o: [["quality","ROE & Margins"], ["value","P/E & Free Cash Flow"], ["trend","Price Momentum"], ["safety","Debt & Assets"]] },
-                { l: "6. Concentration?", o: [["high","Top 5 stocks = 50%"], ["balanced","10-20 Stocks"], ["diversified","30+ Stocks"]] },
-                { l: "7. Volatility?", o: [["love","Opportunity to buy"], ["ignore","Noise"], ["hate","Stressful"]] },
-                { l: "8. Profit Taking?", o: [["never","Hold Forever"], ["valuation","Trim when expensive"], ["target","Sell at price target"]] },
-                { l: "9. Cash Position?", o: [["invested","Always fully invested"], ["tactical","Hold cash for dips"], ["buffer","Always keep 20% cash"]] },
-                { l: "10. Philosophy?", o: [["business","I own businesses"], ["ticker","I trade tickers"]] }
-            ];
-            let html = "";
-            qs.forEach((q, i) => {
-                html += `<div class="quiz-question"><label>${q.l}</label><select id="q${i}">`;
-                q.o.forEach(opt => html += `<option value="${opt[0]}">${opt[1]}</option>`);
-                html += `</select></div>`;
-            });
-            document.getElementById('quizQuestions').innerHTML = html;
-        },
-        processQuiz: () => {
-            const scores = { Growth:0, Income:0, Safety:0, Value:0, Momentum:0 };
-            const getVal = (i) => document.getElementById(`q${i}`).value;
-            // Scoring Logic
-            if(getVal(0)==='growth') scores.Growth+=3; if(getVal(0)==='income') scores.Income+=3; if(getVal(0)==='safety') scores.Safety+=3;
-            if(getVal(1)==='buy') { scores.Growth+=1; scores.Value+=1; } if(getVal(1)==='sell') scores.Safety+=2;
-            if(getVal(4)==='quality') scores.Growth+=1; if(getVal(4)==='value') scores.Value+=2; if(getVal(4)==='trend') scores.Momentum+=2;
-            if(getVal(6)==='love') scores.Value+=1; if(getVal(6)==='hate') scores.Safety+=2;
-            if(getVal(9)==='business') scores.Growth+=1; else scores.Momentum+=1;
 
-            let typeKey = "Compounder"; 
-            if (getVal(2) === 'high') typeKey = "LiquidityConstrained";
-            else if (scores.Safety >= 5) typeKey = "RiskMinimizer";
-            else if (scores.Income >= 3) typeKey = "Income";
-            else if (scores.Momentum >= 3) typeKey = "Redeployer";
-            else if (getVal(5) === 'high') typeKey = "Concentrator";
-            else if (scores.Value >= 4) typeKey = "ValuationAnchored";
+        init: () => {
+            // Check if profile exists, if not use default but don't save it yet (allow quiz)
+            const activeProfile = Store.profile || ProfileEngine.defaultParams;
+            ProfileEngine.renderDashboard(activeProfile);
             
-            Store.profile = { type: typeKey, timestamp: Date.now() };
-            Store.saveProfile();
-            ProfileEngine.renderDashboard();
-            UI.toast("Profile Generated");
+            document.getElementById('submitQuizBtn').addEventListener('click', ProfileEngine.processQuiz);
+            document.getElementById('retakeQuizBtn').addEventListener('click', () => {
+                document.getElementById('quizView').classList.remove('hidden');
+                document.getElementById('profileDashboard').classList.add('hidden');
+                document.getElementById('retakeQuizBtn').classList.add('hidden');
+            });
+            document.getElementById('runHealthCheckBtn').addEventListener('click', ProfileEngine.runHealthCheck);
         },
-        renderDashboard: () => {
+
+        processQuiz: () => {
+            // Behavioral mapping
+            const q = (i) => document.getElementById(`q${i}`).value;
+            let params = { name: "Custom Profile", maxAlloc: 0.15, pillars: [] };
+            
+            // Map Q1 (Goal) -> Base Name
+            if(q(0) === 'growth') params.name = "Long-Term Compounder";
+            if(q(0) === 'income') { params.name = "Income Specialist"; params.pillars.push('safety'); }
+            if(q(0) === 'safety') { params.name = "Risk Minimizer"; params.maxAlloc = 0.10; params.pillars.push('safety'); }
+            
+            // Map Q6 (Concentration) -> Max Alloc
+            if(q(5) === 'high') params.maxAlloc = 0.25;
+            if(q(5) === 'diversified') params.maxAlloc = 0.08;
+
+            // Map Q5 (Metrics) -> Pillars
+            if(q(4) === 'quality') params.pillars.push('quality');
+            if(q(4) === 'value') params.pillars.push('value');
+            if(q(4) === 'trend') params.pillars.push('growth'); // Use growth as proxy for trend momentum fundies
+
+            // Dedupe pillars
+            params.pillars = [...new Set(params.pillars)];
+            if(params.pillars.length === 0) params.pillars = ['quality', 'value']; // Fallback
+
+            Store.profile = params;
+            Store.saveProfile();
+            UI.toast("Profile Calibrated");
+            ProfileEngine.renderDashboard(params);
+        },
+
+        renderDashboard: (p) => {
             document.getElementById('quizView').classList.add('hidden');
             document.getElementById('profileDashboard').classList.remove('hidden');
             document.getElementById('retakeQuizBtn').classList.remove('hidden');
-            const type = InvestorTypes[Store.profile.type];
-            document.getElementById('profileTypeName').innerText = type.name;
-            document.getElementById('profileTypeDesc').innerText = type.desc;
-            const wContainer = document.getElementById('profileWeights');
-            wContainer.innerHTML = '';
-            for (const [key, val] of Object.entries(type.weights)) {
-                if(val > 0) wContainer.innerHTML += `<span class="weight-tag">${key.toUpperCase()}: ${(val*100).toFixed(0)}%</span>`;
+            
+            document.getElementById('profileTypeName').innerText = p.name;
+            document.getElementById('profileTypeDesc').innerText = `Max Position: ${(p.maxAlloc*100)}% | Key Pillars: ${p.pillars.join(', ')}`;
+            
+            // Render Audit Log
+            const ul = document.getElementById('auditLogList');
+            ul.innerHTML = '';
+            if(Store.auditLog.length === 0) ul.innerHTML = '<li>No actions recorded yet.</li>';
+            else {
+                Store.auditLog.slice().reverse().forEach(log => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `<strong>${log.date}</strong> - ${log.action.toUpperCase()} ${log.symbol}: ${log.reason}`;
+                    ul.appendChild(li);
+                });
             }
         },
+
         runHealthCheck: () => {
+            // System Level Health Logic
+            let brokenCap = 0;
+            let totalCap = 0;
+            let maxConc = 0;
+
             const grid = document.getElementById('healthGrid');
-            grid.innerHTML = '<div class="empty-state"><i class="fa-solid fa-spinner fa-spin"></i> Diagnosing...</div>';
-            if(Store.portfolio.length === 0) return grid.innerHTML = '<div class="empty-state">Portfolio is empty.</div>';
-            Store.portfolio.forEach(stock => API.enqueue({ function: 'OVERVIEW', symbol: stock.symbol }, d => ProfileEngine.scoreStock(stock, d)));
-        },
-        scoreStock: (stock, data) => {
-            const { score, raw } = ScoringEngine.calculate(data);
-            const grid = document.getElementById('healthGrid');
-            if(grid.querySelector('.empty-state')) grid.innerHTML = '';
-            let status = "Hold", statusClass = "status-hold";
-            if (score < 40) { status = "Exit Prep"; statusClass = "status-exit"; }
-            else if (score < 60) { status = "Reduce"; statusClass = "status-reduce"; }
-            else if (score < 75) { status = "Watch"; statusClass = "status-watch"; }
-            const card = document.createElement('div');
-            card.className = 'health-card';
-            card.innerHTML = `<div class="health-score-box"><span class="health-score-val" style="color:${score>70?'var(--success)':(score<50?'var(--danger)':'var(--warning)')}">${score}</span><small>Score</small></div><div class="health-details"><h4>${stock.symbol} <span class="health-status ${statusClass}">${status}</span></h4><div class="data-grid-mini"><div class="mini-item"><span class="mini-label">Growth</span><span class="mini-val">${raw.revG}%</span></div><div class="mini-item"><span class="mini-label">ROE</span><span class="mini-val">${raw.roe}%</span></div><div class="mini-item"><span class="mini-label">D/E</span><span class="mini-val">${parseFloat(raw.debt).toFixed(2)}</span></div></div></div>`;
-            grid.appendChild(card);
+            grid.innerHTML = '';
+
+            if(Store.portfolio.length === 0) {
+                grid.innerHTML = '<div class="empty-state">No stocks to analyze.</div>';
+                return;
+            }
+
+            Store.portfolio.forEach(stock => {
+                const val = (stock.currentPrice || stock.price) * stock.shares;
+                totalCap += val;
+                
+                const cached = Store.cache[stock.symbol];
+                if(cached) {
+                    const vec = ScoringEngine.calculateVector(cached.data, stock.pillars || Store.profile?.pillars || []);
+                    if(vec.thesis < 5) brokenCap += val; // Thesis broken
+                    
+                    // Render Mini Card
+                    const card = document.createElement('div');
+                    card.className = 'audit-card';
+                    card.innerHTML = `
+                        <div class="audit-header"><strong>${stock.symbol}</strong><div class="score-badge ${vec.thesis>6?'bg-success':'bg-danger'}">${vec.thesis}/10</div></div>
+                        <div class="audit-body">
+                            <div class="vector-row"><div class="vector-label">Quality</div><div class="vector-track"><div class="vector-fill bg-success" style="width:${vec.quality*10}%"></div></div></div>
+                            <div class="vector-row"><div class="vector-label">Growth</div><div class="vector-track"><div class="vector-fill bg-warning" style="width:${vec.growth*10}%"></div></div></div>
+                            <div class="vector-row"><div class="vector-label">Safety</div><div class="vector-track"><div class="vector-fill bg-buy-small" style="width:${vec.safety*10}%"></div></div></div>
+                        </div>
+                    `;
+                    grid.appendChild(card);
+                }
+            });
+
+            // Calculate System Metrics
+            if (totalCap > 0) {
+                // Find max concentration
+                Store.portfolio.forEach(s => {
+                    const v = (s.currentPrice || s.price) * s.shares;
+                    const w = v / totalCap;
+                    if(w > maxConc) maxConc = w;
+                });
+
+                document.getElementById('sysConcRisk').innerText = (maxConc*100).toFixed(1) + "%";
+                document.getElementById('sysBrokenCap').innerText = ((brokenCap/totalCap)*100).toFixed(1) + "%";
+                
+                let grade = "A";
+                if(brokenCap/totalCap > 0.2) grade = "B";
+                if(brokenCap/totalCap > 0.4) grade = "C";
+                if(maxConc > (Store.profile?.maxAlloc || 0.15) * 1.5) grade = "D"; // Extreme concentration
+                
+                const gEl = document.getElementById('sysHealthGrade');
+                gEl.innerText = grade;
+                gEl.className = `grade-badge grade-${grade}`;
+            }
         }
     };
 
     const App = {
         charts: { alloc: null, perf: null },
-        results: { sell: [], buy: [], firewall: [] },
 
         init: () => {
             try {
@@ -312,9 +351,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 App.setupEventListeners();
                 ProfileEngine.init();
                 
-                // Initialize Currency Switch
                 document.getElementById('currencySwitch').checked = (Store.settings.currency === 'EUR');
                 document.getElementById('currLabel').innerText = Store.settings.currency === 'EUR' ? 'EUR' : 'USD';
+                
                 if(Store.getApiKey()) {
                     document.getElementById('apiStatusDot').style.background = 'var(--success)';
                     API.fetchExchangeRate();
@@ -322,7 +361,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log("App Initialized");
             } catch (e) { console.error(e); UI.toast("Init Failed", "error"); }
         },
+        
         setupEventListeners: () => {
+            // Tab Nav
             document.querySelectorAll('.nav-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
                     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
@@ -330,51 +371,45 @@ document.addEventListener('DOMContentLoaded', () => {
                     btn.classList.add('active');
                     const tab = btn.getAttribute('data-tab');
                     document.getElementById(tab).classList.add('active');
-                    if(tab === 'firewall' || tab === 'buy' || tab === 'sell') App.runScan(tab);
-                    if(tab === 'profile') ProfileEngine.runHealthCheck();
+                    if(tab === 'exit' || tab === 'buy' || tab === 'firewall') App.runExitEngine(tab);
                 });
             });
+
+            // Update Logic
             document.getElementById('refreshBtn').addEventListener('click', () => {
                 if(Store.portfolio.length === 0) return UI.toast("No stocks to update", "error");
                 UI.toast(`Queuing updates...`);
-                document.getElementById('lastUpdated').innerText = `Updating...`;
                 Store.portfolio.forEach((s, idx) => {
                     App.updateSingleStock(idx, true);
                     API.enqueue({ function: 'OVERVIEW', symbol: s.symbol }, () => {
-                        const activeTab = document.querySelector('.view.active').id;
-                        if(activeTab === 'profile') ProfileEngine.runHealthCheck();
-                        if(activeTab === 'firewall' || activeTab === 'buy' || activeTab === 'sell') App.runScan(activeTab);
+                        // Refresh logic handled by cache checks on tab switch
                     });
                 });
             });
-            document.getElementById('currencySwitch').addEventListener('change', (e) => {
-                Store.settings.currency = e.target.checked ? 'EUR' : 'USD';
-                Store.saveSettings();
-                document.getElementById('currLabel').innerText = Store.settings.currency === 'EUR' ? 'EUR' : 'USD';
-                UI.renderPortfolio();
-            });
-            document.getElementById('exportPdfBtn').addEventListener('click', () => {
-                const element = document.getElementById('reportContent');
-                const opt = { margin: 0.5, filename: 'EquitySense_Report.pdf', image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' } };
-                html2pdf().set(opt).from(element).save();
-            });
+
+            // Buttons
+            document.getElementById('currencySwitch').addEventListener('change', (e) => { Store.settings.currency = e.target.checked ? 'EUR' : 'USD'; Store.saveSettings(); document.getElementById('currLabel').innerText = Store.settings.currency === 'EUR' ? 'EUR' : 'USD'; UI.renderPortfolio(); });
+            document.getElementById('exportPdfBtn').addEventListener('click', () => { const element = document.getElementById('reportContent'); html2pdf().set({ margin:0.5, filename:'EquitySense.pdf', image:{type:'jpeg',quality:0.98}, html2canvas:{scale:2}, jsPDF:{unit:'in',format:'letter',orientation:'portrait'} }).from(element).save(); });
             
-            // Modal & Stock Actions
-            const modal = document.getElementById('stockModal');
+            // Modals
+            const stockModal = document.getElementById('stockModal');
+            const exitModal = document.getElementById('exitReasonModal');
+            
             document.getElementById('addStockBtn').addEventListener('click', () => { 
-                document.getElementById('stockForm').reset(); 
-                document.getElementById('editIndex').value = ''; 
-                // Auto-Select Pillars
-                if(Store.profile) {
-                    const type = InvestorTypes[Store.profile.type];
-                    if(type.pillars) type.pillars.forEach(p => { 
+                document.getElementById('stockForm').reset(); document.getElementById('editIndex').value = ''; 
+                // Smart Auto-Fill Thesis Pillars based on Profile
+                if(Store.profile && Store.profile.pillars) {
+                    Store.profile.pillars.forEach(p => {
                         const cb = document.querySelector(`input[value="${p}"]`);
                         if(cb) cb.checked = true;
                     });
                 }
-                modal.classList.add('open'); 
+                stockModal.classList.add('open'); 
             });
-            document.querySelectorAll('.close-modal').forEach(b => b.addEventListener('click', () => modal.classList.remove('open')));
+            
+            document.querySelectorAll('.close-modal').forEach(b => b.addEventListener('click', () => stockModal.classList.remove('open')));
+            document.querySelectorAll('.close-modal-exit').forEach(b => b.addEventListener('click', () => exitModal.classList.remove('open')));
+            
             document.getElementById('saveKeyBtn').addEventListener('click', () => { Store.setApiKey(document.getElementById('apiKeyInput').value); document.getElementById('apiStatusDot').style.background = 'var(--success)'; API.fetchExchangeRate(); UI.toast('API Key Connected'); });
             
             document.getElementById('stockForm').addEventListener('submit', (e) => {
@@ -384,95 +419,65 @@ document.addEventListener('DOMContentLoaded', () => {
                 const stock = { symbol: document.getElementById('mSymbol').value.toUpperCase(), shares: parseFloat(document.getElementById('mShares').value), price: parseFloat(document.getElementById('mPrice').value), conviction: document.getElementById('mConviction').value, thesis: document.getElementById('mThesis').value, pillars: pillars, currentPrice: parseFloat(document.getElementById('mPrice').value) };
                 const idx = document.getElementById('editIndex').value;
                 if (idx !== '') { stock.id = Store.portfolio[idx].id; stock.currentPrice = Store.portfolio[idx].currentPrice; Store.portfolio[idx] = stock; } else { stock.id = Store.generateId(); Store.portfolio.push(stock); }
-                Store.savePortfolio(); UI.renderPortfolio(); modal.classList.remove('open'); UI.toast('Portfolio Updated');
+                Store.savePortfolio(); UI.renderPortfolio(); stockModal.classList.remove('open'); UI.toast('Portfolio Updated');
             });
+
+            // EXIT FORM SUBMIT
+            document.getElementById('exitForm').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const id = document.getElementById('exitStockId').value;
+                const reason = document.getElementById('exitReason').value;
+                const action = document.getElementById('exitActionType').value;
+                
+                const stockIndex = Store.portfolio.findIndex(s => s.id === id);
+                if (stockIndex === -1) return;
+                const stock = Store.portfolio[stockIndex];
+
+                // Log to Audit Trail
+                const logEntry = {
+                    date: new Date().toLocaleDateString(),
+                    symbol: stock.symbol,
+                    action: action,
+                    reason: reason
+                };
+                Store.auditLog.push(logEntry);
+                Store.saveAudit();
+
+                // Perform Action
+                if (action === 'exit') {
+                    Store.portfolio.splice(stockIndex, 1);
+                } else {
+                    // Trim Logic (Simplified: Reduce shares by 50% for now)
+                    Store.portfolio[stockIndex].shares = stock.shares * 0.5;
+                }
+                
+                Store.savePortfolio();
+                UI.renderPortfolio();
+                exitModal.classList.remove('open');
+                UI.toast(`Position ${action === 'exit' ? 'Exited' : 'Trimmed'}`);
+            });
+
             document.getElementById('portfolioList').addEventListener('click', (e) => {
                 const btn = e.target.closest('.action-btn');
                 if(!btn) return;
                 const idx = btn.getAttribute('data-index');
                 if(btn.classList.contains('edit-btn')) App.editStock(idx);
-                else if(btn.classList.contains('delete-btn')) App.deleteStock(btn.getAttribute('data-id'));
+                else if(btn.classList.contains('delete-btn')) App.triggerExitFlow(btn.getAttribute('data-id')); // Trigger Exit Flow
                 else if(btn.classList.contains('refresh-btn')) App.updateSingleStock(idx);
             });
+            
+            // Scan Buttons
+            document.getElementById('runExitScanBtn').addEventListener('click', () => App.runExitEngine('exit'));
+            document.getElementById('runAuditBtn').addEventListener('click', () => App.runExitEngine('firewall'));
+            // Export
             document.getElementById('exportBtn').addEventListener('click', () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify({ portfolio: Store.portfolio })], {type: 'application/json'})); a.download = `portfolio_${Date.now()}.json`; a.click(); });
             const handleImp = (e, replace) => { const reader = new FileReader(); reader.onload = (ev) => { try { Store.portfolio = replace ? JSON.parse(ev.target.result).portfolio : [...Store.portfolio, ...JSON.parse(ev.target.result).portfolio]; Store.savePortfolio(); UI.renderPortfolio(); UI.toast("Import Successful"); } catch(err) { UI.toast("Import Failed", "error"); } }; if(e.target.files.length > 0) reader.readAsText(e.target.files[0]); };
             document.getElementById('importMerge').onchange = (e) => handleImp(e, false); document.getElementById('importReplace').onchange = (e) => handleImp(e, true);
         },
 
-        runScan: (mode) => {
-            const gridId = mode === 'sell' ? 'sellGrid' : (mode === 'buy' ? 'buyGrid' : 'firewallGrid');
-            const grid = document.getElementById(gridId);
-            grid.innerHTML = '';
-            
-            let items = [];
-            if ((mode === 'sell' || mode === 'buy') && !Store.profile) {
-                grid.innerHTML = '';
-                document.getElementById(mode + 'ProfileAlert').classList.remove('hidden');
-                return;
-            }
-            if(document.getElementById(mode + 'ProfileAlert')) document.getElementById(mode + 'ProfileAlert').classList.add('hidden');
-
-            Store.portfolio.forEach(stock => {
-                const cached = Store.cache[stock.symbol];
-                if(cached) {
-                    const { score, raw } = ScoringEngine.calculate(cached.data);
-                    const totalVal = Store.portfolio.reduce((acc,s) => acc + (s.currentPrice * s.shares), 0);
-                    const stockVal = stock.currentPrice * stock.shares;
-                    const weight = totalVal > 0 ? stockVal / totalVal : 0;
-                    items.push({ stock, score, raw, weight, pillars: stock.pillars || [] });
-                }
-            });
-
-            if(items.length === 0) {
-                grid.innerHTML = '<div class="empty-state">No data available. Click "Update All".</div>';
-                return;
-            }
-
-            if (mode === 'firewall') {
-                items.forEach(item => {
-                    const pillars = item.pillars;
-                    const raw = item.raw;
-                    let thesisStatus = "Intact";
-                    let brokenPillars = [];
-                    if(pillars.includes('growth') && parseFloat(raw.revG) < 5) { thesisStatus="Review"; brokenPillars.push("Growth Slowing"); }
-                    if(pillars.includes('moat') && parseFloat(raw.roe) < 10) { thesisStatus="Review"; brokenPillars.push("Moat Eroding"); }
-                    if(pillars.includes('safety') && parseFloat(raw.debt) > 1.5) { thesisStatus="Broken"; brokenPillars.push("Safety Risk"); }
-                    if(pillars.includes('value') && parseFloat(raw.pe) > 35) { thesisStatus="Stretched"; brokenPillars.push("Overvalued"); }
-                    const statusClass = thesisStatus === "Intact" ? "bg-success" : (thesisStatus === "Broken" ? "bg-danger" : "bg-warning");
-                    const card = document.createElement('div');
-                    card.className = 'audit-card';
-                    card.innerHTML = `<div class="action-banner ${statusClass} text-white">Thesis: ${thesisStatus}</div><div class="audit-header"><div><strong>${item.stock.symbol}</strong><br><small>${pillars.join(', ') || 'No Pillars'}</small></div><div class="score-badge ${statusClass}">${item.score}</div></div><div class="audit-body">${brokenPillars.length > 0 ? `<p class="health-reason" style="color:var(--danger)">⚠️ ${brokenPillars.join(', ')}</p>` : ''}<div class="data-grid-mini"><div class="mini-item"><span class="mini-label">Growth</span><span class="mini-val">${raw.revG}%</span></div><div class="mini-item"><span class="mini-label">ROE</span><span class="mini-val">${raw.roe}%</span></div><div class="mini-item"><span class="mini-label">D/E</span><span class="mini-val">${parseFloat(raw.debt).toFixed(2)}</span></div></div></div>`;
-                    grid.appendChild(card);
-                });
-            } else {
-                const limits = getRebalanceLimits(Store.profile.type);
-                if (mode === 'sell') items.sort((a, b) => a.score - b.score); else items.sort((a, b) => b.score - a.score);
-                
-                items.forEach(item => {
-                    const { stock, score, raw, weight } = item;
-                    let action = "", colorClass = "", reason = "";
-                    const pctStr = (weight * 100).toFixed(1) + "%";
-                    const maxAlloc = (limits.max * 100).toFixed(0) + "%";
-                    const isOverweight = weight > limits.max;
-
-                    if (mode === 'sell') {
-                        if (isOverweight) { action = `Trim (Overweight ${pctStr})`; colorClass = "bg-overweight"; reason = `Position > ${maxAlloc}. Reduce risk.`; }
-                        else if (score < 40) { action = "Aggressive Sell"; colorClass = "bg-danger"; reason = `Fundamentals deteriorating.`; }
-                        else if (score < 60) { action = "Trim Position"; colorClass = "bg-warning"; reason = `Weak score. Consider reducing.`; }
-                        else return; // Filter out holds
-                    } else {
-                        if (score > 80 && !isOverweight) { action = "Add Aggressively"; colorClass = "bg-success"; reason = `High conviction. Underweight.`; }
-                        else if (score > 65 && !isOverweight) { action = "Add Small"; colorClass = "bg-buy-small"; reason = `Good quality. Safe to add.`; }
-                        else return; // Filter out non-buys
-                    }
-
-                    const card = document.createElement('div');
-                    card.className = 'audit-card';
-                    card.innerHTML = `<div class="action-banner ${colorClass.replace('bg-', 'bg-')} text-white" style="background-color: var(--${colorClass.replace('bg-','')})">${action}</div><div class="audit-header"><div><strong>${stock.symbol}</strong><div style="font-size:0.8rem; opacity:0.8">Alloc: ${pctStr} / Limit: ${maxAlloc}</div></div><div class="score-badge ${colorClass.replace('bg-', 'bg-')}" style="background-color: var(--${colorClass.replace('bg-','')})">${score}</div></div><div class="audit-body"><p class="health-reason" style="margin-bottom:0.8rem; font-size:0.85rem; border-left:2px solid var(--accent); padding-left:8px;">${reason}</p><div class="data-grid-mini"><div class="mini-item"><span class="mini-label">Growth</span><span class="mini-val ${parseFloat(raw.revG)>0?'positive':'negative'}">${raw.revG}%</span></div><div class="mini-item"><span class="mini-label">ROE</span><span class="mini-val ${parseFloat(raw.roe)>15?'positive':''}">${raw.roe}%</span></div><div class="mini-item"><span class="mini-label">Trend</span><span class="mini-val ${raw.price>raw.ma200?'positive':'negative'}">${raw.price>raw.ma200?'Bull':'Bear'}</span></div></div></div>`;
-                    grid.appendChild(card);
-                });
-                if(grid.innerHTML === '') grid.innerHTML = '<div class="empty-state">No recommendations found.</div>';
-            }
+        triggerExitFlow: (id) => {
+            document.getElementById('exitStockId').value = id;
+            document.getElementById('exitReasonModal').classList.add('open');
         },
 
         updateSingleStock: (idx, isBulk = false) => {
@@ -489,6 +494,73 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         },
 
+        // EXIT STRATEGY ENGINE
+        runExitEngine: (mode) => {
+            const gridId = mode === 'buy' ? 'buyGrid' : (mode === 'firewall' ? 'firewallGrid' : 'exitGrid');
+            const grid = document.getElementById(gridId);
+            grid.innerHTML = '';
+            
+            // Progressive Disclosure: Check if user has enough stocks
+            if (mode === 'exit' && Store.portfolio.length < 3) {
+                document.getElementById('exitLocked').classList.remove('hidden');
+                grid.style.display = 'none';
+                return;
+            }
+            if (mode === 'exit') {
+                document.getElementById('exitLocked').classList.add('hidden');
+                grid.style.display = 'grid';
+            }
+
+            // Calculate Portfolio Total for Weighting
+            const totalVal = Store.portfolio.reduce((acc,s) => acc + (s.currentPrice * s.shares), 0);
+            const maxAlloc = Store.profile ? Store.profile.maxAlloc : 0.15;
+
+            Store.portfolio.forEach(stock => {
+                const cached = Store.cache[stock.symbol];
+                if(cached) {
+                    const vec = ScoringEngine.calculateVector(cached.data, stock.pillars || Store.profile?.pillars || []);
+                    const weight = ((stock.currentPrice * stock.shares) / totalVal);
+                    
+                    // Logic Engine
+                    let action = "HOLD";
+                    let confidence = "High";
+                    let reason = "Thesis intact.";
+                    let css = "bg-success";
+
+                    if (mode === 'exit') {
+                        // 1. Check Thesis
+                        if (vec.thesis < 5) { action = "EXIT"; reason = "Thesis Pillars Broken (Growth/Metrics mismatch)"; css = "bg-danger"; }
+                        // 2. Check Risk
+                        else if (weight > maxAlloc) { action = "TRIM"; reason = `Overweight (${(weight*100).toFixed(1)}% > ${(maxAlloc*100)}%)`; css = "bg-overweight"; }
+                        // 3. Check Trend Risk
+                        else if (vec.trend < 0 && vec.valuation < 4) { action = "WATCH"; reason = "Downtrend + Expensive"; css = "bg-warning"; }
+                        
+                        if (action === "HOLD") return; // Don't show holds in Exit tab
+                    } 
+                    else if (mode === 'firewall') {
+                        // Firewall shows everything
+                        if (vec.thesis < 5) { action="BROKEN"; css="bg-danger"; }
+                        else if (vec.thesis < 8) { action="WEAK"; css="bg-warning"; }
+                        else { action="INTACT"; css="bg-success"; }
+                        reason = `Vector Score: Quality ${vec.quality}, Growth ${vec.growth}`;
+                    }
+                    
+                    // Render Logic
+                    const card = document.createElement('div');
+                    card.className = 'audit-card';
+                    card.innerHTML = `
+                        <div class="action-banner ${css} text-white">${action}</div>
+                        <div class="audit-header"><strong>${stock.symbol}</strong><small>${(weight*100).toFixed(1)}% Alloc</small></div>
+                        <div class="audit-body"><p class="health-reason">${reason}</p>
+                        <div class="vector-row"><div class="vector-label">Thesis</div><div class="vector-track"><div class="vector-fill ${vec.thesis>6?'bg-success':'bg-danger'}" style="width:${vec.thesis*10}%"></div></div></div>
+                        </div>
+                    `;
+                    grid.appendChild(card);
+                }
+            });
+            if(grid.innerHTML === '') grid.innerHTML = '<div class="empty-state">No signals found.</div>';
+        },
+
         editStock: (idx) => {
             const s = Store.portfolio[idx];
             document.getElementById('mSymbol').value = s.symbol;
@@ -500,7 +572,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if(s.pillars) s.pillars.forEach(p => { const cb = document.querySelector(`input[value="${p}"]`); if(cb) cb.checked = true; });
             document.getElementById('stockModal').classList.add('open');
         },
-        deleteStock: (id) => { if(confirm('Delete?')) { Store.portfolio = Store.portfolio.filter(s => s.id !== id); Store.savePortfolio(); UI.renderPortfolio(); }},
 
         initCharts: () => {
             const ctx1 = document.getElementById('allocationChart'), ctx2 = document.getElementById('performanceChart');
