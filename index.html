@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EquitySense | Intelligent Portfolio Engine</title>
+    <title>EquitySense | Smarter Portfolio Insights</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -73,11 +73,10 @@
                             </label>
                             <span>EUR</span>
                         </div>
-                        
                         <button id="exportPdfBtn" class="btn-outline" title="Save as PDF">
                             <i class="fa-solid fa-file-pdf"></i> Report
                         </button>
-                        <button id="updateAllBtn" class="btn-secondary">
+                        <button id="refreshBtn" class="btn-secondary">
                             <i class="fa-solid fa-arrows-rotate"></i> Update All
                         </button>
                         <button id="addStockBtn" class="btn-primary">
@@ -160,7 +159,7 @@
                     <div class="card profile-summary">
                         <div class="profile-header">
                             <div>
-                                <small>Current Classification</small>
+                                <small>Your Classification</small>
                                 <h2 id="profileTypeName">...</h2>
                             </div>
                             <div class="profile-badge"><i class="fa-solid fa-dna"></i></div>
@@ -170,6 +169,7 @@
                     </div>
                     <div class="health-controls">
                         <h3>Portfolio Diagnostic</h3>
+                        <button id="runHealthCheckBtn" class="btn-primary"><i class="fa-solid fa-stethoscope"></i> Run Health Check</button>
                     </div>
                     <div id="healthGrid" class="health-grid">
                         <div class="empty-state"><i class="fa-solid fa-user-doctor"></i><p>Waiting for data update...</p></div>
@@ -182,6 +182,11 @@
                 <div class="card note-card" style="border-left-color: var(--success)">
                     <p><strong>Strategy:</strong> Identifies high-quality stocks (Score > 80) that are currently underweight in your portfolio.</p>
                 </div>
+                <div id="buyProfileAlert" class="card hidden" style="text-align:center; border:1px dashed var(--warning)">
+                    <h3>Profile Required</h3>
+                    <p>We need your Investor Profile to suggest proper allocation sizes.</p>
+                    <button class="btn-primary goto-profile-btn" style="margin:10px auto">Take Quiz</button>
+                </div>
                 <div id="buyGrid" class="firewall-grid">
                     <div class="empty-state"><i class="fa-solid fa-cart-plus"></i><p>Run "Update All" to scan opportunities.</p></div>
                 </div>
@@ -192,31 +197,69 @@
                     <h1>Investment Firewall</h1>
                     <button id="runAuditBtn" class="btn-primary"><i class="fa-solid fa-shield-virus"></i> Audit Thesis</button>
                 </header>
-                
                 <div class="card note-card">
-                    <p><strong>Core Philosophy:</strong> This engine evaluates if your original <em>Investment Thesis</em> is still valid. It checks metrics specifically against the "Pillars" you selected for each stock.</p>
+                    <p><strong>Core Philosophy:</strong> This engine evaluates if your original <em>Investment Thesis</em> is still valid based on real metrics.</p>
                 </div>
-
                 <div id="firewallGrid" class="firewall-grid">
-                    <div class="empty-state"><i class="fa-solid fa-shield-halved"></i><p>Click "Audit Thesis" to verify if your investment premises still hold.</p></div>
+                    <div class="empty-state"><i class="fa-solid fa-shield-halved"></i><p>Click "Audit Thesis" to verify your holdings.</p></div>
                 </div>
             </section>
 
             <section id="docs" class="view">
-                <header class="top-bar"><h1>Documentation</h1></header>
+                <header class="top-bar"><h1>User Manual & Documentation</h1></header>
                 <div class="docs-container">
                     <div class="card doc-block disclaimer">
                         <h3 style="color:var(--warning)"><i class="fa-solid fa-triangle-exclamation"></i> Disclaimer</h3>
-                        <p>This tool is for educational purposes only. It is not financial advice.</p>
+                        <p>This application is for <strong>informational and educational purposes only</strong>. It calculates ratios based on data you provide and third-party APIs. It does <strong>not</strong> constitute financial advice.</p>
+                        <ul>
+                            <li><strong>Data:</strong> Provided by Alpha Vantage. Delays may occur.</li>
+                            <li><strong>Calculations:</strong> Based on standard value investing formulas (ROE, P/E, Debt/Equity).</li>
+                            <li><strong>Liability:</strong> Use at your own risk. Consult a professional advisor before investing.</li>
+                        </ul>
                     </div>
+
                     <div class="card doc-block">
-                        <h2>🚀 How to Start</h2>
+                        <h2>🚀 Getting Started</h2>
                         <ol class="doc-list">
-                            <li>Get a free API Key from Alpha Vantage.</li>
-                            <li>Connect via sidebar.</li>
-                            <li>Add stocks in Portfolio tab (Define your Thesis Pillars!).</li>
-                            <li>Click "Update All" to fetch data and generate reports.</li>
+                            <li><strong>API Key:</strong> Get a free key from <a href="https://www.alphavantage.co" target="_blank" style="color:var(--accent)">AlphaVantage.co</a>. Enter it in the sidebar.</li>
+                            <li><strong>Profile:</strong> Go to the "Profile & Health" tab first. Take the 10-question DNA test. This sets your risk tolerance and allocation limits.</li>
+                            <li><strong>Add Stocks:</strong> Click "Add Position" in Portfolio. The system will auto-select thesis pillars based on your profile (e.g., if you are a Dividend Investor, it auto-selects 'Safety').</li>
+                            <li><strong>Update Data:</strong> Click "Update All". The app will fetch prices and fundamentals sequentially to respect API limits.</li>
                         </ol>
+                    </div>
+
+                    <div class="card doc-block">
+                        <h2>🧠 Features Explained</h2>
+                        <div class="feature-item">
+                            <h4>1. Investor DNA (Profiling)</h4>
+                            <p>We classify you into one of 15 types (e.g., <em>Compounder, Risk Minimizer</em>). This determines:</p>
+                            <ul>
+                                <li><strong>Max Allocation:</strong> How much % of your portfolio should be in one stock?</li>
+                                <li><strong>Weighting:</strong> Does the scoring engine care more about Growth, Safety, or Dividends?</li>
+                            </ul>
+                        </div>
+                        <div class="feature-item">
+                            <h4>2. The Firewall</h4>
+                            <p>A diagnostic tool that scores stocks (0-100) based on:</p>
+                            <ul>
+                                <li><strong>Growth:</strong> Revenue & EPS trends.</li>
+                                <li><strong>Quality:</strong> ROE (>15% is good) and Margins.</li>
+                                <li><strong>Safety:</strong> Debt-to-Equity (<0.5 is safe).</li>
+                                <li><strong>Momentum:</strong> Price trend vs 200-day average.</li>
+                            </ul>
+                            <p>It then compares the metrics to your selected <strong>Thesis Pillars</strong>. If you bought for "Growth" but growth is slowing, it flags "Thesis Broken".</p>
+                        </div>
+                        <div class="feature-item">
+                            <h4>3. Buy & Sell Logic</h4>
+                            <ul>
+                                <li><strong>Buy Candidates:</strong> High Score (>80) AND Underweight position.</li>
+                                <li><strong>Sell Candidates:</strong> Low Score (<60) OR Overweight position (Risk).</li>
+                            </ul>
+                        </div>
+                        <div class="feature-item">
+                            <h4>4. Currency & Reporting</h4>
+                            <p>Toggle USD/EUR in the header. Click "Report" to download a PDF snapshot of your dashboard.</p>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -224,9 +267,25 @@
             <section id="about" class="view">
                 <header class="top-bar"><h1>About</h1></header>
                 <div class="card about-card">
-                    <h2>XXXX</h2>
-                    <p>Lead Developer</p>
-                    <div class="contact-box">yyy@gmail.com</div>
+                    <div class="about-header">
+                        <div class="about-avatar"><i class="fa-solid fa-user-astronaut"></i></div>
+                        <div>
+                            <h2>XXXX</h2>
+                            <p class="text-muted">Lead Developer & Investor</p>
+                        </div>
+                    </div>
+                    <hr style="border-color:var(--border); margin: 1rem 0;">
+                    <div class="about-details">
+                        <p>EquitySense is a personal project built to bridge the gap between quantitative analysis and behavioral psychology. It acts as a rational "Firewall" between market noise and your capital.</p>
+                        <br>
+                        <div class="contact-box">
+                            <i class="fa-solid fa-envelope"></i>
+                            <div>
+                                <small>Feedback & Support</small>
+                                <strong>yyy@gmail.com</strong>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </section>
 
@@ -255,7 +314,7 @@
                 </div>
                 
                 <div class="group">
-                    <label>Thesis Pillars (Select Key Drivers)</label>
+                    <label>Thesis Pillars (Auto-suggested by Profile)</label>
                     <div class="pillars-select">
                         <label><input type="checkbox" name="pillar" value="growth"> Growth (Rev/EPS)</label>
                         <label><input type="checkbox" name="pillar" value="moat"> Moat (Margins/ROE)</label>
@@ -266,8 +325,8 @@
 
                 <div class="group"><label>Thesis Notes</label><textarea id="mThesis" rows="3" placeholder="Why do you own this?"></textarea></div>
                 <div class="modal-footer">
-                    <button type="button" class="close-modal btn-text">Cancel</button>
-                    <button type="submit" class="btn-primary">Save</button>
+                    <button type="button" class="btn-secondary close-modal">Cancel</button>
+                    <button type="submit" class="btn-primary">Save Position</button>
                 </div>
             </form>
         </div>

@@ -1,13 +1,12 @@
 document.addEventListener('DOMContentLoaded', () => {
-    console.log("EquitySense Initializing...");
+    console.log("System initializing...");
 
-    // --- STATE MANAGEMENT ---
     const Store = {
         portfolio: JSON.parse(localStorage.getItem('ep_portfolio')) || [],
         settings: JSON.parse(localStorage.getItem('ep_settings')) || { currency: 'USD' },
         profile: JSON.parse(localStorage.getItem('ep_profile')) || null,
         cache: JSON.parse(localStorage.getItem('ep_cache')) || {},
-        exchangeRate: 1.0, // Default 1:1 if fetch fails
+        exchangeRate: 1.0,
         
         getApiKey: () => sessionStorage.getItem('ep_api_key'),
         setApiKey: (key) => sessionStorage.setItem('ep_api_key', key),
@@ -18,23 +17,22 @@ document.addEventListener('DOMContentLoaded', () => {
         generateId: () => '_' + Math.random().toString(36).substr(2, 9)
     };
 
-    // --- CONFIGURATION ---
     const InvestorTypes = {
-        "Compounder": { id: 1, name: "Long-Term Compounder", desc: "Maximizes long-term intrinsic value.", weights: { growth: 0.4, quality: 0.4, safety: 0.1, value: 0.1 } },
-        "Redeployer": { id: 2, name: "Capital Redeployer", desc: "Reallocates capital to best opportunities.", weights: { value: 0.4, momentum: 0.2, growth: 0.2, safety: 0.2 } },
-        "CashConstrained": { id: 3, name: "Cash-Constrained", desc: "Grows capital with limited surplus.", weights: { safety: 0.5, value: 0.3, quality: 0.2, growth: 0.0 } },
-        "Income": { id: 4, name: "Income-Focused", desc: "Prioritizes stable cash flows.", weights: { dividend: 0.5, safety: 0.3, quality: 0.2, growth: 0.0 } },
-        "RiskMinimizer": { id: 5, name: "Risk-Minimizer", desc: "Capital preservation is paramount.", weights: { safety: 0.6, quality: 0.3, value: 0.1, growth: 0.0 } },
-        "DrawdownSensitive": { id: 6, name: "Drawdown-Sensitive", desc: "Strict loss limits.", weights: { safety: 0.5, momentum: 0.2, quality: 0.3, growth: 0.0 } },
-        "TimeHorizon": { id: 7, name: "Time-Horizon Optimizer", desc: "Maximizes capital for future date.", weights: { growth: 0.5, quality: 0.3, value: 0.2, safety: 0.0 } },
-        "VolatilityAgnostic": { id: 8, name: "Volatility-Agnostic", desc: "CAGR above all else.", weights: { growth: 0.6, momentum: 0.2, value: 0.2, safety: 0.0 } },
-        "LiquidityConstrained": { id: 9, name: "Liquidity-Constrained", desc: "Needs near-term access to cash.", weights: { safety: 0.4, quality: 0.4, momentum: 0.2, growth: 0.0 } },
-        "Concentrator": { id: 10, name: "Conviction-Weighted", desc: "Outsized returns via few bets.", weights: { quality: 0.5, growth: 0.3, value: 0.2, safety: 0.0 } },
-        "Stabilizer": { id: 11, name: "Diversification-First", desc: "Reduces idiosyncratic risk.", weights: { safety: 0.4, quality: 0.4, value: 0.2, growth: 0.0 } },
-        "ValuationAnchored": { id: 12, name: "Valuation-Anchored", desc: "Only buys with Margin of Safety.", weights: { value: 0.7, quality: 0.2, safety: 0.1, growth: 0.0 } },
-        "Systematic": { id: 13, name: "Rule-Bound Systematic", desc: "Strict adherence to rules.", weights: { quality: 0.3, value: 0.3, safety: 0.3, growth: 0.1 } },
-        "CycleTimer": { id: 14, name: "Opportunistic Cycle-Timer", desc: "Exploits market cycles.", weights: { value: 0.4, momentum: 0.4, quality: 0.2, safety: 0.0 } },
-        "PreservationPlus": { id: 15, name: "Capital-Preservation-Plus", desc: "Beat inflation, low risk.", weights: { safety: 0.7, quality: 0.2, dividend: 0.1, growth: 0.0 } }
+        "Compounder": { id: 1, name: "Long-Term Compounder", desc: "Maximizes long-term intrinsic value.", weights: { growth: 0.4, quality: 0.4, safety: 0.1, value: 0.1 }, pillars:['growth','moat'] },
+        "Redeployer": { id: 2, name: "Capital Redeployer", desc: "Reallocates capital to best opportunities.", weights: { value: 0.4, momentum: 0.2, growth: 0.2, safety: 0.2 }, pillars:['value','growth'] },
+        "CashConstrained": { id: 3, name: "Cash-Constrained", desc: "Grows capital with limited surplus.", weights: { safety: 0.5, value: 0.3, quality: 0.2, growth: 0.0 }, pillars:['safety','value'] },
+        "Income": { id: 4, name: "Income-Focused", desc: "Prioritizes stable cash flows.", weights: { dividend: 0.5, safety: 0.3, quality: 0.2, growth: 0.0 }, pillars:['safety'] },
+        "RiskMinimizer": { id: 5, name: "Risk-Minimizer", desc: "Capital preservation is paramount.", weights: { safety: 0.6, quality: 0.3, value: 0.1, growth: 0.0 }, pillars:['safety','moat'] },
+        "DrawdownSensitive": { id: 6, name: "Drawdown-Sensitive", desc: "Strict loss limits.", weights: { safety: 0.5, momentum: 0.2, quality: 0.3, growth: 0.0 }, pillars:['safety','value'] },
+        "TimeHorizon": { id: 7, name: "Time-Horizon Optimizer", desc: "Maximizes capital for future date.", weights: { growth: 0.5, quality: 0.3, value: 0.2, safety: 0.0 }, pillars:['growth'] },
+        "VolatilityAgnostic": { id: 8, name: "Volatility-Agnostic", desc: "CAGR above all else.", weights: { growth: 0.6, momentum: 0.2, value: 0.2, safety: 0.0 }, pillars:['growth','moat'] },
+        "LiquidityConstrained": { id: 9, name: "Liquidity-Constrained", desc: "Needs near-term access to cash.", weights: { safety: 0.4, quality: 0.4, momentum: 0.2, growth: 0.0 }, pillars:['safety'] },
+        "Concentrator": { id: 10, name: "Conviction-Weighted", desc: "Outsized returns via few bets.", weights: { quality: 0.5, growth: 0.3, value: 0.2, safety: 0.0 }, pillars:['growth','moat'] },
+        "Stabilizer": { id: 11, name: "Diversification-First", desc: "Reduces idiosyncratic risk.", weights: { safety: 0.4, quality: 0.4, value: 0.2, growth: 0.0 }, pillars:['safety','quality'] },
+        "ValuationAnchored": { id: 12, name: "Valuation-Anchored", desc: "Only buys with Margin of Safety.", weights: { value: 0.7, quality: 0.2, safety: 0.1, growth: 0.0 }, pillars:['value','safety'] },
+        "Systematic": { id: 13, name: "Rule-Bound Systematic", desc: "Strict adherence to rules.", weights: { quality: 0.3, value: 0.3, safety: 0.3, growth: 0.1 }, pillars:['value','moat'] },
+        "CycleTimer": { id: 14, name: "Opportunistic Cycle-Timer", desc: "Exploits market cycles.", weights: { value: 0.4, momentum: 0.4, quality: 0.2, safety: 0.0 }, pillars:['value','growth'] },
+        "PreservationPlus": { id: 15, name: "Capital-Preservation-Plus", desc: "Beat inflation, low risk.", weights: { safety: 0.7, quality: 0.2, dividend: 0.1, growth: 0.0 }, pillars:['safety','value'] }
     };
 
     const getRebalanceLimits = (typeKey) => {
@@ -44,7 +42,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return { max: 0.15 };
     };
 
-    // --- API & DATA ---
     const API = {
         baseUrl: 'https://www.alphavantage.co/query',
         queue: [],
@@ -61,7 +58,6 @@ document.addEventListener('DOMContentLoaded', () => {
             UI.updateQueue(API.queue.length, true);
             try {
                 let data;
-                // CACHE LOGIC: Only cache OVERVIEW for 24h
                 if(task.params.function === 'OVERVIEW' && Store.cache[task.params.symbol] && (Date.now() - Store.cache[task.params.symbol].ts < 86400000)) {
                     data = Store.cache[task.params.symbol].data;
                 } else {
@@ -76,7 +72,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if(task.errorCallback) task.errorCallback(err);
                 UI.toast(`API Error: ${err.message}`, 'error');
             }
-            // Rate Limit: 1 call every 12s approx (Safe side for free tier)
             let countdown = 120; 
             const timer = setInterval(() => {
                 countdown--;
@@ -96,23 +91,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch(url);
             const data = await res.json();
             if (data.Note) throw new Error("API Limit Reached");
-            if (data['Error Message']) throw new Error("Invalid Data");
+            if (data['Error Message']) throw new Error("Invalid Ticker/Data");
             return data;
         },
         fetchExchangeRate: async () => {
-            // Only fetch if key exists
             if (!Store.getApiKey()) return;
             try {
-                // To save API calls, we only do this once per session or default to 0.95
                 const data = await API.fetchData({ function: 'CURRENCY_EXCHANGE_RATE', from_currency: 'USD', to_currency: 'EUR' });
                 if(data['Realtime Currency Exchange Rate']) {
                     Store.exchangeRate = parseFloat(data['Realtime Currency Exchange Rate']['5. Exchange Rate']);
-                    console.log("Exchange Rate Set:", Store.exchangeRate);
                 }
-            } catch(e) {
-                console.warn("Using default exchange rate 0.95");
-                Store.exchangeRate = 0.95;
-            }
+            } catch(e) { Store.exchangeRate = 0.95; }
         }
     };
 
@@ -154,14 +143,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const sShares = parseFloat(stock.shares);
                 const sPrice = parseFloat(stock.price);
                 const sCurr = stock.currentPrice ? parseFloat(stock.currentPrice) : sPrice;
-
                 const val = sCurr * sShares;
                 const cost = sPrice * sShares;
-                
                 let ret = 0;
-                if(sCurr && sCurr !== sPrice) {
-                     ret = ((val - cost) / cost) * 100;
-                }
+                if(sCurr && sCurr !== sPrice) ret = ((val - cost) / cost) * 100;
                 
                 totalInv += cost;
                 totalVal += val;
@@ -178,6 +163,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td class="${ret > 0 ? 'positive' : (ret < 0 ? 'negative' : '')}">${UI.fmtPct(ret)}</td>
                     <td>${stock.conviction}</td>
                     <td>
+                        <button class="btn-icon action-btn refresh-btn" data-index="${idx}" title="Update Price"><i class="fa-solid fa-rotate"></i></button>
                         <button class="btn-icon action-btn edit-btn" data-index="${idx}" title="Edit"><i class="fa-solid fa-pen"></i></button>
                         <button class="btn-icon action-btn delete-btn" data-id="${stock.id}" style="color:var(--danger)" title="Delete"><i class="fa-solid fa-trash"></i></button>
                     </td>
@@ -191,7 +177,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const retEl = document.getElementById('totalReturn');
             retEl.innerText = UI.fmtPct(ret);
             retEl.className = ret >= 0 ? 'positive' : 'negative';
-            
             App.updateCharts();
         }
     };
@@ -212,7 +197,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 ma200: p(data['200DayMovingAverage']),
                 price: p(data['50DayMovingAverage'])
             };
-            
             let score = 0;
             if (p(raw.revG) > 10) score += 15; else if (p(raw.revG) > 0) score += 10;
             if (p(raw.epsG) > 10) score += 15; else if (p(raw.epsG) > 0) score += 5;
@@ -220,7 +204,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (p(raw.margin) > 20) score += 15; else if (p(raw.margin) > 10) score += 10;
             if (raw.debt < 0.5) score += 20; else if (raw.debt < 1.0) score += 10;
             if (raw.price > raw.ma200) score += 20;
-
             return { score, raw };
         }
     };
@@ -233,13 +216,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 ProfileEngine.renderQuiz();
             }
             document.getElementById('submitQuizBtn').addEventListener('click', ProfileEngine.processQuiz);
-            document.getElementById('retakeQuizBtn').addEventListener('click', () => {
-                Store.profile = null;
-                Store.saveProfile();
-                ProfileEngine.renderQuiz();
-            });
-            // Profile Sort Handler
-            document.getElementById('profileSort').addEventListener('change', () => ProfileEngine.runHealthCheck());
+            document.getElementById('retakeQuizBtn').addEventListener('click', () => { Store.profile = null; Store.saveProfile(); ProfileEngine.renderQuiz(); });
+            document.getElementById('runHealthCheckBtn').addEventListener('click', ProfileEngine.runHealthCheck);
+            document.querySelectorAll('.goto-profile-btn').forEach(b => b.addEventListener('click', () => { document.querySelector('.nav-btn[data-tab="profile"]').click(); }));
         },
         renderQuiz: () => {
             document.getElementById('quizView').classList.remove('hidden');
@@ -268,13 +247,20 @@ document.addEventListener('DOMContentLoaded', () => {
         processQuiz: () => {
             const scores = { Growth:0, Income:0, Safety:0, Value:0, Momentum:0 };
             const getVal = (i) => document.getElementById(`q${i}`).value;
-            // Simplified scoring mapping for brevity but functional
+            // Scoring Logic
             if(getVal(0)==='growth') scores.Growth+=3; if(getVal(0)==='income') scores.Income+=3; if(getVal(0)==='safety') scores.Safety+=3;
-            // ... (rest of logic same as before)
+            if(getVal(1)==='buy') { scores.Growth+=1; scores.Value+=1; } if(getVal(1)==='sell') scores.Safety+=2;
+            if(getVal(4)==='quality') scores.Growth+=1; if(getVal(4)==='value') scores.Value+=2; if(getVal(4)==='trend') scores.Momentum+=2;
+            if(getVal(6)==='love') scores.Value+=1; if(getVal(6)==='hate') scores.Safety+=2;
+            if(getVal(9)==='business') scores.Growth+=1; else scores.Momentum+=1;
+
             let typeKey = "Compounder"; 
             if (getVal(2) === 'high') typeKey = "LiquidityConstrained";
             else if (scores.Safety >= 5) typeKey = "RiskMinimizer";
             else if (scores.Income >= 3) typeKey = "Income";
+            else if (scores.Momentum >= 3) typeKey = "Redeployer";
+            else if (getVal(5) === 'high') typeKey = "Concentrator";
+            else if (scores.Value >= 4) typeKey = "ValuationAnchored";
             
             Store.profile = { type: typeKey, timestamp: Date.now() };
             Store.saveProfile();
@@ -293,36 +279,17 @@ document.addEventListener('DOMContentLoaded', () => {
             for (const [key, val] of Object.entries(type.weights)) {
                 if(val > 0) wContainer.innerHTML += `<span class="weight-tag">${key.toUpperCase()}: ${(val*100).toFixed(0)}%</span>`;
             }
-            // Auto run
-            ProfileEngine.runHealthCheck();
         },
         runHealthCheck: () => {
             const grid = document.getElementById('healthGrid');
-            grid.innerHTML = '';
-            
-            const results = [];
-            Store.portfolio.forEach(stock => {
-                const cached = Store.cache[stock.symbol];
-                if(cached) {
-                    const { score, raw } = ScoringEngine.calculate(cached.data);
-                    results.push({stock, score, raw});
-                }
-            });
-
-            if(results.length === 0) {
-                grid.innerHTML = '<div class="empty-state">No data. Click "Update All" in Portfolio.</div>';
-                return;
-            }
-
-            // SORTING LOGIC
-            const sortMode = document.getElementById('profileSort').value;
-            if(sortMode === 'score_desc') results.sort((a,b) => b.score - a.score);
-            else if(sortMode === 'score_asc') results.sort((a,b) => a.score - b.score);
-            else results.sort((a,b) => a.stock.symbol.localeCompare(b.stock.symbol));
-
-            results.forEach(res => ProfileEngine.renderCard(res.stock, res.score, res.raw, grid));
+            grid.innerHTML = '<div class="empty-state"><i class="fa-solid fa-spinner fa-spin"></i> Diagnosing...</div>';
+            if(Store.portfolio.length === 0) return grid.innerHTML = '<div class="empty-state">Portfolio is empty.</div>';
+            Store.portfolio.forEach(stock => API.enqueue({ function: 'OVERVIEW', symbol: stock.symbol }, d => ProfileEngine.scoreStock(stock, d)));
         },
-        renderCard: (stock, score, raw, grid) => {
+        scoreStock: (stock, data) => {
+            const { score, raw } = ScoringEngine.calculate(data);
+            const grid = document.getElementById('healthGrid');
+            if(grid.querySelector('.empty-state')) grid.innerHTML = '';
             let status = "Hold", statusClass = "status-hold";
             if (score < 40) { status = "Exit Prep"; statusClass = "status-exit"; }
             else if (score < 60) { status = "Reduce"; statusClass = "status-reduce"; }
@@ -336,7 +303,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const App = {
         charts: { alloc: null, perf: null },
-        results: { buy: [] }, // Sell logic handled inside render now
+        results: { sell: [], buy: [], firewall: [] },
 
         init: () => {
             try {
@@ -345,21 +312,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 App.setupEventListeners();
                 ProfileEngine.init();
                 
-                // Initialize Currency Switch State
+                // Initialize Currency Switch
                 document.getElementById('currencySwitch').checked = (Store.settings.currency === 'EUR');
                 document.getElementById('currLabel').innerText = Store.settings.currency === 'EUR' ? 'EUR' : 'USD';
-                
-                // Fetch rate if key exists
                 if(Store.getApiKey()) {
                     document.getElementById('apiStatusDot').style.background = 'var(--success)';
                     API.fetchExchangeRate();
                 }
-                
                 console.log("App Initialized");
-            } catch (e) {
-                console.error(e);
-                UI.toast("Init Failed", "error");
-            }
+            } catch (e) { console.error(e); UI.toast("Init Failed", "error"); }
         },
         setupEventListeners: () => {
             document.querySelectorAll('.nav-btn').forEach(btn => {
@@ -369,118 +330,96 @@ document.addEventListener('DOMContentLoaded', () => {
                     btn.classList.add('active');
                     const tab = btn.getAttribute('data-tab');
                     document.getElementById(tab).classList.add('active');
-                    
-                    // Auto-refresh views if data exists
-                    if(tab === 'firewall' || tab === 'buy') App.runScan(tab);
+                    if(tab === 'firewall' || tab === 'buy' || tab === 'sell') App.runScan(tab);
                     if(tab === 'profile') ProfileEngine.runHealthCheck();
                 });
             });
-
-            // Update All Button - The Master Fetcher
-            document.getElementById('updateAllBtn').addEventListener('click', () => {
+            document.getElementById('refreshBtn').addEventListener('click', () => {
                 if(Store.portfolio.length === 0) return UI.toast("No stocks to update", "error");
-                UI.toast(`Updating entire portfolio...`);
+                UI.toast(`Queuing updates...`);
                 document.getElementById('lastUpdated').innerText = `Updating...`;
-                
                 Store.portfolio.forEach((s, idx) => {
-                    // 1. Fetch Price
-                    API.enqueue({ function: 'GLOBAL_QUOTE', symbol: s.symbol }, (data) => {
-                        const price = parseFloat(data['Global Quote']['05. price']);
-                        if (price) { 
-                            Store.portfolio[idx].currentPrice = price; 
-                            Store.savePortfolio(); 
-                            UI.renderPortfolio(); 
-                        }
-                    });
-                    // 2. Fetch Fundamentals (Cached)
+                    App.updateSingleStock(idx, true);
                     API.enqueue({ function: 'OVERVIEW', symbol: s.symbol }, () => {
-                        // Data handles itself in API.process caching logic
-                        // Trigger UI update for current tab
                         const activeTab = document.querySelector('.view.active').id;
                         if(activeTab === 'profile') ProfileEngine.runHealthCheck();
-                        if(activeTab === 'firewall' || activeTab === 'buy') App.runScan(activeTab);
+                        if(activeTab === 'firewall' || activeTab === 'buy' || activeTab === 'sell') App.runScan(activeTab);
                     });
                 });
             });
-
-            // Currency Switch
             document.getElementById('currencySwitch').addEventListener('change', (e) => {
                 Store.settings.currency = e.target.checked ? 'EUR' : 'USD';
                 Store.saveSettings();
                 document.getElementById('currLabel').innerText = Store.settings.currency === 'EUR' ? 'EUR' : 'USD';
-                UI.renderPortfolio(); // Re-render to update symbols
+                UI.renderPortfolio();
             });
-
-            // PDF Export
             document.getElementById('exportPdfBtn').addEventListener('click', () => {
                 const element = document.getElementById('reportContent');
                 const opt = { margin: 0.5, filename: 'EquitySense_Report.pdf', image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' } };
                 html2pdf().set(opt).from(element).save();
             });
-
-            // Add/Edit Modal
+            
+            // Modal & Stock Actions
             const modal = document.getElementById('stockModal');
-            document.getElementById('addStockBtn').addEventListener('click', () => { document.getElementById('stockForm').reset(); document.getElementById('editIndex').value = ''; modal.classList.add('open'); });
+            document.getElementById('addStockBtn').addEventListener('click', () => { 
+                document.getElementById('stockForm').reset(); 
+                document.getElementById('editIndex').value = ''; 
+                // Auto-Select Pillars
+                if(Store.profile) {
+                    const type = InvestorTypes[Store.profile.type];
+                    if(type.pillars) type.pillars.forEach(p => { 
+                        const cb = document.querySelector(`input[value="${p}"]`);
+                        if(cb) cb.checked = true;
+                    });
+                }
+                modal.classList.add('open'); 
+            });
             document.querySelectorAll('.close-modal').forEach(b => b.addEventListener('click', () => modal.classList.remove('open')));
             document.getElementById('saveKeyBtn').addEventListener('click', () => { Store.setApiKey(document.getElementById('apiKeyInput').value); document.getElementById('apiStatusDot').style.background = 'var(--success)'; API.fetchExchangeRate(); UI.toast('API Key Connected'); });
             
             document.getElementById('stockForm').addEventListener('submit', (e) => {
                 e.preventDefault();
-                // Get pillars
                 const pillars = [];
                 document.querySelectorAll('input[name="pillar"]:checked').forEach(cb => pillars.push(cb.value));
-                
-                const stock = { 
-                    symbol: document.getElementById('mSymbol').value.toUpperCase(), 
-                    shares: parseFloat(document.getElementById('mShares').value), 
-                    price: parseFloat(document.getElementById('mPrice').value), 
-                    conviction: document.getElementById('mConviction').value, 
-                    thesis: document.getElementById('mThesis').value, 
-                    pillars: pillars,
-                    currentPrice: parseFloat(document.getElementById('mPrice').value) 
-                };
+                const stock = { symbol: document.getElementById('mSymbol').value.toUpperCase(), shares: parseFloat(document.getElementById('mShares').value), price: parseFloat(document.getElementById('mPrice').value), conviction: document.getElementById('mConviction').value, thesis: document.getElementById('mThesis').value, pillars: pillars, currentPrice: parseFloat(document.getElementById('mPrice').value) };
                 const idx = document.getElementById('editIndex').value;
                 if (idx !== '') { stock.id = Store.portfolio[idx].id; stock.currentPrice = Store.portfolio[idx].currentPrice; Store.portfolio[idx] = stock; } else { stock.id = Store.generateId(); Store.portfolio.push(stock); }
                 Store.savePortfolio(); UI.renderPortfolio(); modal.classList.remove('open'); UI.toast('Portfolio Updated');
             });
-            
             document.getElementById('portfolioList').addEventListener('click', (e) => {
                 const btn = e.target.closest('.action-btn');
                 if(!btn) return;
                 const idx = btn.getAttribute('data-index');
                 if(btn.classList.contains('edit-btn')) App.editStock(idx);
                 else if(btn.classList.contains('delete-btn')) App.deleteStock(btn.getAttribute('data-id'));
+                else if(btn.classList.contains('refresh-btn')) App.updateSingleStock(idx);
             });
-            
             document.getElementById('exportBtn').addEventListener('click', () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify({ portfolio: Store.portfolio })], {type: 'application/json'})); a.download = `portfolio_${Date.now()}.json`; a.click(); });
             const handleImp = (e, replace) => { const reader = new FileReader(); reader.onload = (ev) => { try { Store.portfolio = replace ? JSON.parse(ev.target.result).portfolio : [...Store.portfolio, ...JSON.parse(ev.target.result).portfolio]; Store.savePortfolio(); UI.renderPortfolio(); UI.toast("Import Successful"); } catch(err) { UI.toast("Import Failed", "error"); } }; if(e.target.files.length > 0) reader.readAsText(e.target.files[0]); };
             document.getElementById('importMerge').onchange = (e) => handleImp(e, false); document.getElementById('importReplace').onchange = (e) => handleImp(e, true);
         },
 
         runScan: (mode) => {
-            const gridId = mode === 'buy' ? 'buyGrid' : 'firewallGrid';
+            const gridId = mode === 'sell' ? 'sellGrid' : (mode === 'buy' ? 'buyGrid' : 'firewallGrid');
             const grid = document.getElementById(gridId);
             grid.innerHTML = '';
             
             let items = [];
-            
-            // Check Profile for Buy Logic
-            if(mode === 'buy' && !Store.profile) {
-                grid.innerHTML = '<div class="empty-state">Please complete Profile Quiz first.</div>';
+            if ((mode === 'sell' || mode === 'buy') && !Store.profile) {
+                grid.innerHTML = '';
+                document.getElementById(mode + 'ProfileAlert').classList.remove('hidden');
                 return;
             }
+            if(document.getElementById(mode + 'ProfileAlert')) document.getElementById(mode + 'ProfileAlert').classList.add('hidden');
 
             Store.portfolio.forEach(stock => {
                 const cached = Store.cache[stock.symbol];
                 if(cached) {
                     const { score, raw } = ScoringEngine.calculate(cached.data);
-                    
-                    // Calc Portfolio Weight
                     const totalVal = Store.portfolio.reduce((acc,s) => acc + (s.currentPrice * s.shares), 0);
                     const stockVal = stock.currentPrice * stock.shares;
                     const weight = totalVal > 0 ? stockVal / totalVal : 0;
-                    
-                    items.push({ stock, score, raw, weight });
+                    items.push({ stock, score, raw, weight, pillars: stock.pillars || [] });
                 }
             });
 
@@ -489,61 +428,65 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // FIREWALL LOGIC 2.0
             if (mode === 'firewall') {
                 items.forEach(item => {
-                    const pillars = item.stock.pillars || [];
+                    const pillars = item.pillars;
                     const raw = item.raw;
                     let thesisStatus = "Intact";
                     let brokenPillars = [];
-
-                    // Thesis Validation Logic
                     if(pillars.includes('growth') && parseFloat(raw.revG) < 5) { thesisStatus="Review"; brokenPillars.push("Growth Slowing"); }
                     if(pillars.includes('moat') && parseFloat(raw.roe) < 10) { thesisStatus="Review"; brokenPillars.push("Moat Eroding"); }
                     if(pillars.includes('safety') && parseFloat(raw.debt) > 1.5) { thesisStatus="Broken"; brokenPillars.push("Safety Risk"); }
                     if(pillars.includes('value') && parseFloat(raw.pe) > 35) { thesisStatus="Stretched"; brokenPillars.push("Overvalued"); }
-
                     const statusClass = thesisStatus === "Intact" ? "bg-success" : (thesisStatus === "Broken" ? "bg-danger" : "bg-warning");
-                    
                     const card = document.createElement('div');
                     card.className = 'audit-card';
-                    card.innerHTML = `
-                        <div class="action-banner ${statusClass} text-white">Thesis: ${thesisStatus}</div>
-                        <div class="audit-header">
-                            <div><strong>${item.stock.symbol}</strong><br><small>${pillars.join(', ') || 'No Pillars Set'}</small></div>
-                            <div class="score-badge ${statusClass}">${item.score}</div>
-                        </div>
-                        <div class="audit-body">
-                            ${brokenPillars.length > 0 ? `<p class="health-reason" style="color:var(--danger)">⚠️ ${brokenPillars.join(', ')}</p>` : ''}
-                            <div class="data-grid-mini">
-                                <div class="mini-item"><span class="mini-label">Growth</span><span class="mini-val">${raw.revG}%</span></div>
-                                <div class="mini-item"><span class="mini-label">ROE</span><span class="mini-val">${raw.roe}%</span></div>
-                                <div class="mini-item"><span class="mini-label">D/E</span><span class="mini-val">${parseFloat(raw.debt).toFixed(2)}</span></div>
-                            </div>
-                        </div>
-                    `;
+                    card.innerHTML = `<div class="action-banner ${statusClass} text-white">Thesis: ${thesisStatus}</div><div class="audit-header"><div><strong>${item.stock.symbol}</strong><br><small>${pillars.join(', ') || 'No Pillars'}</small></div><div class="score-badge ${statusClass}">${item.score}</div></div><div class="audit-body">${brokenPillars.length > 0 ? `<p class="health-reason" style="color:var(--danger)">⚠️ ${brokenPillars.join(', ')}</p>` : ''}<div class="data-grid-mini"><div class="mini-item"><span class="mini-label">Growth</span><span class="mini-val">${raw.revG}%</span></div><div class="mini-item"><span class="mini-label">ROE</span><span class="mini-val">${raw.roe}%</span></div><div class="mini-item"><span class="mini-label">D/E</span><span class="mini-val">${parseFloat(raw.debt).toFixed(2)}</span></div></div></div>`;
                     grid.appendChild(card);
                 });
-            } 
-            else if (mode === 'buy') {
-                // Buy Logic: High Score + Underweight
+            } else {
                 const limits = getRebalanceLimits(Store.profile.type);
-                items.sort((a,b) => b.score - a.score);
+                if (mode === 'sell') items.sort((a, b) => a.score - b.score); else items.sort((a, b) => b.score - a.score);
                 
                 items.forEach(item => {
-                    if(item.score > 80 && item.weight < limits.max) {
-                        const card = document.createElement('div');
-                        card.className = 'audit-card';
-                        card.innerHTML = `
-                            <div class="action-banner bg-success text-white">Top Pick</div>
-                            <div class="audit-header"><strong>${item.stock.symbol}</strong><div class="score-badge bg-success">${item.score}</div></div>
-                            <div class="audit-body"><p>Excellent fundamentals. Room to add (Current: ${(item.weight*100).toFixed(1)}%).</p></div>
-                        `;
-                        grid.appendChild(card);
+                    const { stock, score, raw, weight } = item;
+                    let action = "", colorClass = "", reason = "";
+                    const pctStr = (weight * 100).toFixed(1) + "%";
+                    const maxAlloc = (limits.max * 100).toFixed(0) + "%";
+                    const isOverweight = weight > limits.max;
+
+                    if (mode === 'sell') {
+                        if (isOverweight) { action = `Trim (Overweight ${pctStr})`; colorClass = "bg-overweight"; reason = `Position > ${maxAlloc}. Reduce risk.`; }
+                        else if (score < 40) { action = "Aggressive Sell"; colorClass = "bg-danger"; reason = `Fundamentals deteriorating.`; }
+                        else if (score < 60) { action = "Trim Position"; colorClass = "bg-warning"; reason = `Weak score. Consider reducing.`; }
+                        else return; // Filter out holds
+                    } else {
+                        if (score > 80 && !isOverweight) { action = "Add Aggressively"; colorClass = "bg-success"; reason = `High conviction. Underweight.`; }
+                        else if (score > 65 && !isOverweight) { action = "Add Small"; colorClass = "bg-buy-small"; reason = `Good quality. Safe to add.`; }
+                        else return; // Filter out non-buys
                     }
+
+                    const card = document.createElement('div');
+                    card.className = 'audit-card';
+                    card.innerHTML = `<div class="action-banner ${colorClass.replace('bg-', 'bg-')} text-white" style="background-color: var(--${colorClass.replace('bg-','')})">${action}</div><div class="audit-header"><div><strong>${stock.symbol}</strong><div style="font-size:0.8rem; opacity:0.8">Alloc: ${pctStr} / Limit: ${maxAlloc}</div></div><div class="score-badge ${colorClass.replace('bg-', 'bg-')}" style="background-color: var(--${colorClass.replace('bg-','')})">${score}</div></div><div class="audit-body"><p class="health-reason" style="margin-bottom:0.8rem; font-size:0.85rem; border-left:2px solid var(--accent); padding-left:8px;">${reason}</p><div class="data-grid-mini"><div class="mini-item"><span class="mini-label">Growth</span><span class="mini-val ${parseFloat(raw.revG)>0?'positive':'negative'}">${raw.revG}%</span></div><div class="mini-item"><span class="mini-label">ROE</span><span class="mini-val ${parseFloat(raw.roe)>15?'positive':''}">${raw.roe}%</span></div><div class="mini-item"><span class="mini-label">Trend</span><span class="mini-val ${raw.price>raw.ma200?'positive':'negative'}">${raw.price>raw.ma200?'Bull':'Bear'}</span></div></div></div>`;
+                    grid.appendChild(card);
                 });
-                if(grid.innerHTML === '') grid.innerHTML = '<div class="empty-state">No "Buy" candidates found matching criteria.</div>';
+                if(grid.innerHTML === '') grid.innerHTML = '<div class="empty-state">No recommendations found.</div>';
             }
+        },
+
+        updateSingleStock: (idx, isBulk = false) => {
+            const stock = Store.portfolio[idx];
+            if(!isBulk) UI.toast(`Updating ${stock.symbol}...`);
+            API.enqueue({ function: 'GLOBAL_QUOTE', symbol: stock.symbol }, (data) => {
+                const price = parseFloat(data['Global Quote']['05. price']);
+                if (price) { 
+                    Store.portfolio[idx].currentPrice = price; 
+                    Store.savePortfolio(); 
+                    UI.renderPortfolio(); 
+                    if(!isBulk) document.getElementById('lastUpdated').innerText = `Updated ${stock.symbol} at ${new Date().toLocaleTimeString()}`;
+                }
+            });
         },
 
         editStock: (idx) => {
@@ -554,13 +497,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('mConviction').value = s.conviction;
             document.getElementById('mThesis').value = s.thesis || "";
             document.getElementById('editIndex').value = idx;
-            // Check pillars
-            if(s.pillars) {
-                s.pillars.forEach(p => {
-                    const cb = document.querySelector(`input[value="${p}"]`);
-                    if(cb) cb.checked = true;
-                });
-            }
+            if(s.pillars) s.pillars.forEach(p => { const cb = document.querySelector(`input[value="${p}"]`); if(cb) cb.checked = true; });
             document.getElementById('stockModal').classList.add('open');
         },
         deleteStock: (id) => { if(confirm('Delete?')) { Store.portfolio = Store.portfolio.filter(s => s.id !== id); Store.savePortfolio(); UI.renderPortfolio(); }},
