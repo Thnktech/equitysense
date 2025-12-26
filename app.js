@@ -1,11 +1,22 @@
 document.addEventListener('DOMContentLoaded', () => {
     console.log("System initializing...");
 
+    // Helper to safely parse local storage
+    const safeParse = (key, fallback) => {
+        try {
+            const item = localStorage.getItem(key);
+            return item ? JSON.parse(item) : fallback;
+        } catch (e) {
+            console.warn(`Corrupt data for ${key}, resetting.`);
+            return fallback;
+        }
+    };
+
     const Store = {
-        portfolio: JSON.parse(localStorage.getItem('ep_portfolio')) || [],
-        settings: JSON.parse(localStorage.getItem('ep_settings')) || { currency: 'USD' },
-        profile: JSON.parse(localStorage.getItem('ep_profile')) || null,
-        cache: JSON.parse(localStorage.getItem('ep_cache')) || {},
+        portfolio: safeParse('ep_portfolio', []),
+        settings: safeParse('ep_settings', { currency: 'USD' }),
+        profile: safeParse('ep_profile', null),
+        cache: safeParse('ep_cache', {}),
         exchangeRate: 1.0,
         
         getApiKey: () => sessionStorage.getItem('ep_api_key'),
@@ -71,11 +82,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 task.callback(data);
             } catch (err) { console.error(err); UI.toast("API Error", "error"); }
-            
-            let countdown = 120; // 12s
+            let countdown = 150; 
             const timer = setInterval(() => {
                 countdown--;
-                UI.updateProgress((120 - countdown) / 120 * 100);
+                UI.updateProgress((150 - countdown) / 150 * 100);
                 if (countdown <= 0) {
                     clearInterval(timer);
                     UI.updateProgress(0);
@@ -123,7 +133,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!tbody) return;
             tbody.innerHTML = '';
             let totalInv = 0, totalVal = 0;
-
             Store.portfolio.forEach((stock, idx) => {
                 const sShares = parseFloat(stock.shares);
                 const sPrice = parseFloat(stock.price);
@@ -132,36 +141,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 const cost = sPrice * sShares;
                 let ret = 0;
                 if(sCurr && sCurr !== sPrice) ret = ((val - cost) / cost) * 100;
-                
-                totalInv += cost;
-                totalVal += val;
-
+                totalInv += cost; totalVal += val;
                 const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td style="font-weight:700; font-family: var(--font-mono)">${stock.symbol}</td>
-                    <td>${sShares}</td>
-                    <td>${UI.fmtMoney(sPrice)}</td>
-                    <td style="color:${stock.currentPrice ? '' : 'var(--text-secondary)'}">
-                        ${stock.currentPrice ? UI.fmtMoney(sCurr) : 'Pending...'}
-                    </td>
-                    <td>${UI.fmtMoney(val)}</td>
-                    <td class="${ret > 0 ? 'positive' : (ret < 0 ? 'negative' : '')}">${UI.fmtPct(ret)}</td>
-                    <td>${stock.conviction}</td>
-                    <td>
-                        <button class="btn-icon action-btn refresh-btn" data-index="${idx}" title="Update Price"><i class="fa-solid fa-rotate"></i></button>
-                        <button class="btn-icon action-btn edit-btn" data-index="${idx}" title="Edit"><i class="fa-solid fa-pen"></i></button>
-                        <button class="btn-icon action-btn delete-btn" data-id="${stock.id}" style="color:var(--danger)" title="Delete"><i class="fa-solid fa-trash"></i></button>
-                    </td>
-                `;
+                tr.innerHTML = `<td style="font-weight:700; font-family: var(--font-mono)">${stock.symbol}</td><td>${sShares}</td><td>${UI.fmtMoney(sPrice)}</td><td style="color:${stock.currentPrice?'':'var(--text-secondary)'}">${stock.currentPrice?UI.fmtMoney(sCurr):'Pending...'}</td><td>${UI.fmtMoney(val)}</td><td class="${ret>0?'positive':(ret<0?'negative':'')}">${UI.fmtPct(ret)}</td><td>${stock.conviction}</td><td><button class="btn-icon action-btn refresh-btn" data-index="${idx}" title="Update"><i class="fa-solid fa-rotate"></i></button><button class="btn-icon action-btn edit-btn" data-index="${idx}"><i class="fa-solid fa-pen"></i></button><button class="btn-icon action-btn delete-btn" data-id="${stock.id}" style="color:var(--danger)"><i class="fa-solid fa-trash"></i></button></td>`;
                 tbody.appendChild(tr);
             });
-
             document.getElementById('totalInvested').innerText = UI.fmtMoney(totalInv);
             document.getElementById('totalValue').innerText = UI.fmtMoney(totalVal);
             const ret = totalInv > 0 ? ((totalVal - totalInv) / totalInv) * 100 : 0;
             const retEl = document.getElementById('totalReturn');
-            retEl.innerText = UI.fmtPct(ret);
-            retEl.className = ret >= 0 ? 'positive' : 'negative';
+            retEl.innerText = UI.fmtPct(ret); retEl.className = ret >= 0 ? 'positive' : 'negative';
             App.updateCharts();
         }
     };
@@ -278,7 +267,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('quizView').classList.add('hidden');
             document.getElementById('profileDashboard').classList.remove('hidden');
             document.getElementById('retakeQuizBtn').classList.remove('hidden');
-            const type = InvestorTypes[p.type || "Compounder"];
+            const type = InvestorTypes[Store.profile.type];
             document.getElementById('profileTypeName').innerText = type.name;
             document.getElementById('profileTypeDesc').innerText = type.desc;
             const wContainer = document.getElementById('profileWeights');
@@ -351,7 +340,6 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('refreshBtn').addEventListener('click', () => {
                 if(Store.portfolio.length === 0) return UI.toast("No stocks to update", "error");
                 UI.toast(`Queuing updates...`);
-                document.getElementById('lastUpdated').innerText = `Updating...`;
                 Store.portfolio.forEach((s, idx) => {
                     App.updateSingleStock(idx, true);
                     API.enqueue({ function: 'OVERVIEW', symbol: s.symbol }, () => {
