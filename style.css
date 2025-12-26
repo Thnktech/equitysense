@@ -1,3 +1,4 @@
+/* --- EXISTING STYLES --- */
 :root {
     --bg-main: #0f172a; --bg-sidebar: #1e293b; --card-bg: #1e293b; --card-bg-light: #334155;
     --text-primary: #f8fafc; --text-secondary: #94a3b8;
@@ -9,11 +10,8 @@ body { background: var(--bg-main); color: var(--text-primary); font-family: var(
 .app-container { display: grid; grid-template-columns: 260px 1fr; height: 100vh; }
 .sidebar { background: var(--bg-sidebar); border-right: 1px solid var(--border); padding: 1.5rem; display: flex; flex-direction: column; }
 .main-content { overflow-y: auto; padding: 2rem; }
-
-/* BRANDING TWEAK */
 .brand { display: flex; align-items: center; gap: 8px; font-size: 1.25rem; font-weight: 700; margin-bottom: 2.5rem; color: #fff; white-space: nowrap; }
 .brand span { color: var(--accent); }
-
 .nav-links { flex: 1; display: flex; flex-direction: column; gap: 0.5rem; }
 .nav-btn { background: transparent; border: none; color: var(--text-secondary); padding: 0.8rem 1rem; text-align: left; cursor: pointer; border-radius: 8px; font-weight: 500; display: flex; align-items: center; gap: 12px; transition: 0.2s; font-size: 0.95rem; }
 .nav-btn:hover { background: rgba(255,255,255,0.05); color: #fff; }
@@ -62,10 +60,10 @@ input, select, textarea { background: var(--bg-main); border: 1px solid var(--bo
 .full-width { width: 100%; }
 
 /* Profile & Health */
-.quiz-container { max-width: 600px; margin: 0 auto; }
-.quiz-question { margin-bottom: 1.5rem; }
-.quiz-question label { display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--accent); }
-.quiz-question select { width: 100%; padding: 0.8rem; background: var(--bg-main); }
+.quiz-container { max-width: 700px; margin: 0 auto; }
+.quiz-question { margin-bottom: 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 1.5rem; }
+.quiz-question label { display: block; margin-bottom: 0.8rem; font-weight: 600; color: var(--text-primary); font-size: 1rem; }
+.quiz-question select { width: 100%; padding: 0.8rem; background: var(--card-bg-light); border-color: var(--border); color: var(--text-primary); }
 .profile-summary { border-left: 4px solid var(--accent); }
 .profile-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
 .profile-badge { width: 60px; height: 60px; background: rgba(56, 189, 248, 0.1); color: var(--accent); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
@@ -108,6 +106,8 @@ input, select, textarea { background: var(--bg-main); border: 1px solid var(--bo
 .about-avatar { width: 80px; height: 80px; background: var(--bg-main); border: 2px solid var(--accent); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2rem; color: var(--accent); }
 .contact-box { background: rgba(59, 130, 246, 0.1); padding: 1rem; border-radius: 8px; display: inline-flex; align-items: center; gap: 1rem; border: 1px solid var(--accent); margin-top: 1rem; }
 .disclaimer { border-left: 4px solid var(--warning); background: rgba(245, 158, 11, 0.1); }
+.feature-item { margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid rgba(255,255,255,0.05); }
+.feature-item h4 { color: var(--text-primary); margin-bottom: 0.5rem; font-size: 1.1rem; }
 
 /* Data Mini Table */
 .data-grid-mini { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }

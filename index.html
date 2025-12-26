@@ -94,15 +94,11 @@
                 <div class="charts-row">
                     <div class="chart-container">
                         <h3>Allocation by Value</h3>
-                        <div class="chart-wrapper">
-                            <canvas id="allocationChart"></canvas>
-                        </div>
+                        <div class="chart-wrapper"><canvas id="allocationChart"></canvas></div>
                     </div>
                     <div class="chart-container">
                         <h3>Performance vs Cost</h3>
-                        <div class="chart-wrapper">
-                            <canvas id="performanceChart"></canvas>
-                        </div>
+                        <div class="chart-wrapper"><canvas id="performanceChart"></canvas></div>
                     </div>
                 </div>
 
@@ -119,14 +115,7 @@
                         <table class="data-table">
                             <thead>
                                 <tr>
-                                    <th>Ticker</th>
-                                    <th>Shares</th>
-                                    <th>Avg Cost</th>
-                                    <th>Current Price</th>
-                                    <th>Value</th>
-                                    <th>Return</th>
-                                    <th>Conviction</th>
-                                    <th>Actions</th>
+                                    <th>Ticker</th><th>Shares</th><th>Avg Cost</th><th>Current Price</th><th>Value</th><th>Return</th><th>Conviction</th><th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="portfolioList"></tbody>
@@ -138,15 +127,17 @@
             <section id="profile" class="view">
                 <header class="top-bar">
                     <h1>Profile & Health</h1>
-                    <button id="retakeQuizBtn" class="btn-outline hidden">Retake Quiz</button>
+                    <button id="retakeQuizBtn" class="btn-outline hidden">Retake Analysis</button>
                 </header>
 
                 <div id="quizView" class="hidden">
                     <div class="card quiz-container">
-                        <h2>Investor DNA Test</h2>
-                        <p class="text-muted">Answer 5 questions to calibrate your Buy/Sell signals.</p>
+                        <div class="quiz-header">
+                            <h2><i class="fa-solid fa-dna"></i> Investor DNA Analysis</h2>
+                            <p class="text-muted">This 10-point psychometric assessment will classify your investing style and calibrate the entire application's risk engine to your personal psychology.</p>
+                        </div>
                         <div id="quizQuestions"></div>
-                        <button id="submitQuizBtn" class="btn-primary full-width" style="margin-top:1rem">Generate Profile</button>
+                        <button id="submitQuizBtn" class="btn-primary full-width" style="margin-top:1.5rem; padding: 1rem;">Generate Comprehensive Profile</button>
                     </div>
                 </div>
 
@@ -154,7 +145,7 @@
                     <div class="card profile-summary">
                         <div class="profile-header">
                             <div>
-                                <small>Current Classification</small>
+                                <small>Your Classification</small>
                                 <h2 id="profileTypeName">Long-Term Compounder</h2>
                             </div>
                             <div class="profile-badge"><i class="fa-solid fa-dna"></i></div>
@@ -178,7 +169,7 @@
                     <button id="runSellScanBtn" class="btn-danger"><i class="fa-solid fa-filter"></i> Scan Portfolio</button>
                 </header>
                 <div class="card note-card" style="border-left-color: var(--danger)">
-                    <p><i class="fa-solid fa-triangle-exclamation"></i> <strong>Sorted by WEAKEST:</strong> Shows stocks with deteriorating fundamentals or overweight allocation.</p>
+                    <p><i class="fa-solid fa-triangle-exclamation"></i> <strong>Priority Sort:</strong> Stocks are ranked by "Sell Urgency" (Fundamental deterioration + Overweight position).</p>
                 </div>
                 <div id="sellProfileAlert" class="card hidden" style="text-align:center; border:1px dashed var(--warning)">
                     <h3>Profile Required</h3>
@@ -196,7 +187,7 @@
                     <button id="runBuyScanBtn" class="btn-success"><i class="fa-solid fa-rocket"></i> Scan Portfolio</button>
                 </header>
                 <div class="card note-card" style="border-left-color: var(--success)">
-                    <p><i class="fa-solid fa-arrow-trend-up"></i> <strong>Sorted by STRONGEST:</strong> High-quality compounders with room to add.</p>
+                    <p><i class="fa-solid fa-arrow-trend-up"></i> <strong>Priority Sort:</strong> Stocks are ranked by "Quality" (Fundamental strength + Underweight position).</p>
                 </div>
                 <div id="buyProfileAlert" class="card hidden" style="text-align:center; border:1px dashed var(--warning)">
                     <h3>Profile Required</h3>
@@ -219,35 +210,60 @@
             </section>
 
             <section id="docs" class="view">
-                <header class="top-bar"><h1>Documentation</h1></header>
+                <header class="top-bar"><h1>Documentation & Manual</h1></header>
                 <div class="docs-container">
                     <div class="card doc-block disclaimer">
-                        <h3 style="color:var(--warning)"><i class="fa-solid fa-triangle-exclamation"></i> Disclaimer</h3>
-                        <p>This application is for <strong>informational and educational purposes only</strong>. It does not constitute financial advice, investment recommendations, or an offer to buy/sell any securities.</p>
-                        <ul>
-                            <li><strong>No Warranty:</strong> Calculations are based on third-party data (Alpha Vantage) which may be delayed or inaccurate.</li>
-                            <li><strong>Risk Warning:</strong> Investing involves risk, including the loss of principal. Past performance is no guarantee of future results.</li>
-                            <li><strong>User Responsibility:</strong> All investment decisions are solely the responsibility of the user. Consult a qualified financial advisor before making decisions.</li>
+                        <h3 style="color:var(--warning)"><i class="fa-solid fa-triangle-exclamation"></i> Legal Disclaimer</h3>
+                        <p>This application is an educational tool designed to assist in portfolio organization and behavioral analysis. <strong>It does not provide financial advice.</strong></p>
+                        <ul class="doc-list">
+                            <li><strong>Data Accuracy:</strong> Market data is fetched via Alpha Vantage. We cannot guarantee real-time accuracy or uptime.</li>
+                            <li><strong>No Warranty:</strong> The "Firewall" scores are based on standard financial ratios (Peter Lynch/Buffett style) but do not guarantee future performance.</li>
+                            <li><strong>User Responsibility:</strong> You are solely responsible for your investment decisions. Always verify data with a broker.</li>
                         </ul>
                     </div>
 
                     <div class="card doc-block">
-                        <h2>🚀 Getting Started</h2>
+                        <h2>🚀 Getting Started Guide</h2>
                         <ol class="doc-list">
-                            <li><strong>Get an API Key:</strong> Visit <a href="https://www.alphavantage.co/support/#api-key" target="_blank" style="color:var(--accent)">Alpha Vantage</a> to get a free key.</li>
-                            <li><strong>Connect:</strong> Paste the key into the sidebar and click "Connect".</li>
-                            <li><strong>Add Stocks:</strong> Go to Portfolio > Add Position. Enter ticker, price, shares.</li>
+                            <li><strong>API Key Setup:</strong> To pull live data, you need a free API key from <a href="https://www.alphavantage.co/support/#api-key" target="_blank" style="color:var(--accent)">Alpha Vantage</a>. Enter it in the sidebar and click "Connect". Your key is saved locally in your browser session.</li>
+                            <li><strong>Building Your Portfolio:</strong> Navigate to the <strong>Portfolio</strong> tab. Click "Add Position". You must enter the Ticker Symbol (e.g., AAPL), your average buy price, and the number of shares.</li>
+                            <li><strong>Updating Prices:</strong> The app does not auto-refresh to save your API limits. Click the <strong>"Update All Prices"</strong> button in the Portfolio header to fetch the latest market data.</li>
                         </ol>
                     </div>
 
                     <div class="card doc-block">
-                        <h2>🧠 Features Explained</h2>
-                        <ul>
-                            <li><strong>Portfolio:</strong> Real-time tracking. Click the <i class="fa-solid fa-rotate"></i> icon to update individual stock prices.</li>
-                            <li><strong>Profile:</strong> Determines your "Investor DNA" to set risk limits.</li>
-                            <li><strong>Buy/Sell Now:</strong> Suggests actions based on fundamental health AND your profile's allocation limits.</li>
-                            <li><strong>Firewall:</strong> The master diagnostic tool. Scores every holding 0-100 based on Growth, Profitability, Safety, and Trend.</li>
-                        </ul>
+                        <h2>🧠 Deep Dive: Features Explained</h2>
+                        
+                        <div class="feature-item">
+                            <h4>1. Investor Profile & Diagnostic</h4>
+                            <p>This is the brain of the application. The 10-question analysis determines your "Investor Type" (e.g., <em>Compounder, Risk Minimizer</em>). This profile dictates your <strong>Maximum Allocation Limits</strong> and <strong>Risk Tolerance Weights</strong> used in the Buy/Sell tabs.</p>
+                        </div>
+
+                        <div class="feature-item">
+                            <h4>2. The "Firewall" Logic</h4>
+                            <p>The firewall is a rules-based scoring engine (0-100) that ignores price action and focuses on business health. It evaluates:</p>
+                            <ul>
+                                <li><strong>Growth (30%):</strong> Is Revenue and EPS growing year-over-year? (>10% is ideal).</li>
+                                <li><strong>Profitability (30%):</strong> Is ROE > 15%? Are Operating Margins expanding?</li>
+                                <li><strong>Safety (20%):</strong> Is Debt-to-Equity < 0.5? (Low debt is safer).</li>
+                                <li><strong>Trend (20%):</strong> Is the price above the 200-Day Moving Average? (Bullish trend).</li>
+                            </ul>
+                        </div>
+
+                        <div class="feature-item">
+                            <h4>3. Buy Now? (Opportunity Scanner)</h4>
+                            <p>This tab finds the <strong>highest quality</strong> stocks in your portfolio that are currently <strong>underweight</strong>.</p>
+                            <p><em>Example:</em> If you are a "Concentrator" (allowed 25% per stock) and hold Google (Score 90) at only 5% allocation, this tab will signal <strong>"Add Aggressively"</strong>.</p>
+                        </div>
+
+                        <div class="feature-item">
+                            <h4>4. Sell Now? (Risk Scanner)</h4>
+                            <p>This tab highlights two types of sell signals:</p>
+                            <ul>
+                                <li><strong>Fundamental Decay:</strong> Stocks with Scores < 50 (Slowing growth, high debt).</li>
+                                <li><strong>Portfolio Risk:</strong> Stocks that are "Overweight" based on your profile (e.g., a "Diversifier" holding 30% in one stock will get a "Trim" alert).</li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -258,19 +274,19 @@
                     <div class="about-header">
                         <div class="about-avatar"><i class="fa-solid fa-user-astronaut"></i></div>
                         <div>
-                            <h2>XXXX</h2>
+                            <h2>Muthiah S</h2>
                             <p class="text-muted">Lead Developer & Investor</p>
                         </div>
                     </div>
                     <hr style="border-color:var(--border); margin: 1rem 0;">
                     <div class="about-details">
-                        <p>Built to solve the problem of emotional investing. EquitySense acts as a rational "Firewall" between market noise and your capital.</p>
+                        <p>EquitySense was built to solve the problem of emotional investing. By forcing a rules-based "Firewall" between market noise and your capital, this tool aims to help rational investors compound wealth over decades.</p>
                         <br>
                         <div class="contact-box">
                             <i class="fa-solid fa-envelope"></i>
                             <div>
                                 <small>Feedback & Support</small>
-                                <strong>yyy@gmail.com</strong>
+                                <strong>thinkingtechie2020@gmail.com</strong>
                             </div>
                         </div>
                     </div>
