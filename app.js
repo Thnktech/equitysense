@@ -48,16 +48,14 @@ document.addEventListener('DOMContentLoaded', () => {
         isProcessing: false,
         enqueue: (params, callback) => {
             API.queue.push({ params, callback });
-            UI.updateQueue(API.queue.length, true);
+            UI.updateQueue(API.queue.length);
             API.process();
         },
         process: async () => {
-            if (API.isProcessing || API.queue.length === 0) {
-                UI.updateQueue(0, false);
-                return;
-            }
+            if (API.isProcessing || API.queue.length === 0) return;
             API.isProcessing = true;
             const task = API.queue.shift();
+            UI.updateQueue(API.queue.length, true);
             try {
                 let data;
                 if(task.params.function === 'OVERVIEW' && Store.cache[task.params.symbol] && (Date.now() - Store.cache[task.params.symbol].ts < 86400000)) {
@@ -72,10 +70,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 task.callback(data);
             } catch (err) { console.error(err); UI.toast("API Error", "error"); }
             
-            let countdown = 120; // 12 seconds
+            let countdown = 150; // Increased to 15s to be safe
             const timer = setInterval(() => {
                 countdown--;
-                UI.updateProgress((120 - countdown) / 120 * 100);
+                UI.updateProgress((150 - countdown) / 150 * 100);
                 if (countdown <= 0) {
                     clearInterval(timer);
                     UI.updateProgress(0);
@@ -86,7 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         fetchData: async (params) => {
             const key = Store.getApiKey();
-            if (!key) throw new Error("Missing API Key");
+            if (!key) throw new Error("Missing Key");
             const url = `${API.baseUrl}?` + new URLSearchParams({ ...params, apikey: key });
             const res = await fetch(url);
             return await res.json();
@@ -146,58 +144,55 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const ScoringEngine = {
         parse: (val) => {
-            if (val === "None" || val === "-" || val === "0" || val === 0 || val === undefined) return null; // Return null if invalid
+            if (val === "None" || val === "-" || val === "0" || val === 0 || val === undefined) return null;
             return parseFloat(val);
         },
         calculateVector: (data, pillars) => {
             const p = ScoringEngine.parse;
             const vec = { quality: 0, growth: 0, safety: 0, valuation: 0, trend: 0, thesis: 0, hasData: false };
             
-            if(!data || !data.Symbol) return vec; // Return empty if no data
+            // Check if valid data exists
+            if(!data || !data.Symbol) return vec;
             vec.hasData = true;
 
             const roe = p(data.ReturnOnEquityTTM) * 100 || 0;
-            const opMargin = p(data.OperatingMarginTTM) * 100 || 0;
             const revG = p(data.QuarterlyRevenueGrowthYOY) * 100 || 0;
-            const epsG = p(data.QuarterlyEarningsGrowthYOY) * 100 || 0;
             const debt = data.DebtToEquityRatio === "None" ? 0 : (p(data.DebtToEquityRatio) || 0);
             const pe = p(data.PERatio) || 0;
             const price = p(data['50DayMovingAverage']) || 0;
             const ma200 = p(data['200DayMovingAverage']) || 0;
 
             if (roe > 20) vec.quality += 5; else if (roe > 10) vec.quality += 3;
-            if (opMargin > 20) vec.quality += 5; else if (opMargin > 10) vec.quality += 3;
             if (revG > 15) vec.growth += 5; else if (revG > 0) vec.growth += 2;
-            if (epsG > 15) vec.growth += 5; else if (epsG > 0) vec.growth += 2;
             if (debt < 0.5) vec.safety += 6; else if (debt < 1.0) vec.safety += 3; else vec.safety += 1;
             vec.safety += 4; 
             if (pe > 0 && pe < 25) vec.valuation = 10; else if (pe < 40) vec.valuation = 5;
             if (price > ma200) vec.trend = 1; else vec.trend = -1;
 
             let matches = 0;
+            // Fuzzy match pillar names
             if (pillars.includes('growth') && vec.growth > 5) matches++;
             if (pillars.includes('quality') && vec.quality > 5) matches++;
             if (pillars.includes('safety') && vec.safety > 6) matches++;
             if (pillars.includes('value') && vec.valuation > 5) matches++;
             
-            vec.thesis = Math.max(2, Math.round((matches / (pillars.length || 1)) * 10)); // Min score 2
+            // Allow "No Pillar" stocks to not fail immediately
+            const pCount = pillars.length || 1;
+            vec.thesis = Math.round((matches / pCount) * 10);
             
             return { vec, raw: { roe, revG, debt, pe, price, ma200 } };
         },
         calculateDecision: (stock, scoreData, weight, limit) => {
-            if (!scoreData.vec.hasData) return { action: "WAIT", reason: "Need Data Update", css: "bg-watch" };
+            if (!scoreData.vec.hasData) return { action: "WAIT", reason: "Data Pending...", css: "bg-pending" };
             
             const { vec } = scoreData;
             const isOverweight = weight > limit;
             
-            // EXIT LOGIC
-            if (vec.thesis < 4) return { action: "EXIT", reason: "Thesis Pillars Broken", css: "bg-danger" };
+            if (vec.thesis < 4) return { action: "EXIT", reason: "Thesis Broken", css: "bg-danger" };
             if (vec.trend < 0 && vec.valuation < 2) return { action: "REVIEW", reason: "Downtrend + Expensive", css: "bg-danger" };
             if (isOverweight && vec.thesis < 7) return { action: "TRIM", reason: "Overweight & Weakening", css: "bg-overweight" };
-            
-            // BUY LOGIC
             if (vec.thesis >= 8 && !isOverweight && vec.trend > 0) return { action: "BUY", reason: "High Conviction Winner", css: "bg-success" };
-            if (vec.thesis >= 6 && !isOverweight) return { action: "ADD", reason: "Solid Fundamental Fit", css: "bg-buy-small" };
+            if (vec.thesis >= 6 && !isOverweight) return { action: "ADD", reason: "Solid Fit", css: "bg-buy-small" };
             
             return { action: "HOLD", reason: "Thesis Intact", css: "bg-success" };
         }
@@ -216,6 +211,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('retakeQuizBtn').classList.add('hidden');
             });
             document.getElementById('runHealthCheckBtn').addEventListener('click', ProfileEngine.runHealthCheck);
+            document.querySelectorAll('.goto-profile-btn').forEach(b => b.addEventListener('click', () => { document.querySelector('.nav-btn[data-tab="profile"]').click(); }));
         },
         renderQuiz: () => {
             document.getElementById('quizView').classList.remove('hidden');
@@ -243,6 +239,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (getVal(2) === 'high') typeKey = "LiquidityConstrained";
             else if (getVal(0) === 'income') typeKey = "Income";
             else if (getVal(0) === 'safety') typeKey = "RiskMinimizer";
+            else if (getVal(5) === 'high') typeKey = "Concentrator";
             
             Store.profile = { type: typeKey, timestamp: Date.now() };
             Store.saveProfile();
@@ -253,7 +250,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('quizView').classList.add('hidden');
             document.getElementById('profileDashboard').classList.remove('hidden');
             document.getElementById('retakeQuizBtn').classList.remove('hidden');
-            const type = InvestorTypes[p.type || "Compounder"];
+            const type = InvestorTypes[Store.profile.type];
             document.getElementById('profileTypeName').innerText = type.name;
             document.getElementById('profileTypeDesc').innerText = type.desc;
             const wContainer = document.getElementById('profileWeights');
@@ -261,7 +258,6 @@ document.addEventListener('DOMContentLoaded', () => {
             for (const [key, val] of Object.entries(type.weights)) {
                 if(val > 0) wContainer.innerHTML += `<span class="weight-tag">${key.toUpperCase()}: ${(val*100).toFixed(0)}%</span>`;
             }
-            ProfileEngine.runHealthCheck();
         },
         runHealthCheck: () => {
             const grid = document.getElementById('healthGrid');
@@ -283,7 +279,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     card.innerHTML = `<div class="health-score-box"><span class="health-score-val" style="color:${vec.thesis>6?'var(--success)':'var(--danger)'}">${vec.thesis}/10</span><small>Thesis</small></div><div class="health-details"><h4>${stock.symbol}</h4><div class="data-grid-mini"><div class="mini-item"><span class="mini-label">Growth</span><span class="mini-val">${raw.revG.toFixed(1)}%</span></div><div class="mini-item"><span class="mini-label">ROE</span><span class="mini-val">${raw.roe.toFixed(1)}%</span></div><div class="mini-item"><span class="mini-label">D/E</span><span class="mini-val">${raw.debt.toFixed(2)}</span></div></div></div>`;
                     grid.appendChild(card);
                 } else {
-                    grid.innerHTML += `<div class="health-card"><h4>${stock.symbol}</h4><small>Waiting for data...</small></div>`;
+                    grid.innerHTML += `<div class="health-card"><h4>${stock.symbol}</h4><small>Waiting for data... Click Update in Portfolio.</small></div>`;
                 }
             });
             
@@ -325,8 +321,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             });
             document.getElementById('refreshBtn').addEventListener('click', () => {
-                if(Store.portfolio.length === 0) return UI.toast("No stocks", "error");
-                UI.toast("Updating all...");
+                if(Store.portfolio.length === 0) return UI.toast("No stocks to update", "error");
+                UI.toast(`Queuing updates...`);
                 Store.portfolio.forEach((s, idx) => {
                     App.updateSingleStock(idx, true);
                     API.enqueue({ function: 'OVERVIEW', symbol: s.symbol }, () => {
@@ -344,6 +340,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('addStockBtn').addEventListener('click', () => { 
                 document.getElementById('stockForm').reset(); 
                 document.getElementById('editIndex').value = ''; 
+                // Auto-Select Pillars based on Profile
                 if(Store.profile && Store.profile.type) {
                     const type = InvestorTypes[Store.profile.type];
                     if(type.pillars) type.pillars.forEach(p => { 
@@ -355,6 +352,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             document.querySelectorAll('.close-modal').forEach(b => b.addEventListener('click', () => modal.classList.remove('open')));
             document.getElementById('saveKeyBtn').addEventListener('click', () => { Store.setApiKey(document.getElementById('apiKeyInput').value); document.getElementById('apiStatusDot').style.background = 'var(--success)'; API.fetchExchangeRate(); UI.toast('Connected'); });
+            
             document.getElementById('stockForm').addEventListener('submit', (e) => {
                 e.preventDefault();
                 const pillars = [];
@@ -415,7 +413,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const decision = ScoringEngine.calculateDecision(stock, scoreData, weight, limit);
                     
                     // Filter Logic
-                    if (mode === 'exit' && (decision.action === 'HOLD' || decision.action === 'BUY' || decision.action === 'ADD')) return;
+                    if (mode === 'exit' && (decision.action === 'HOLD' || decision.action === 'BUY' || decision.action === 'ADD' || decision.action === 'WAIT')) return;
                     if (mode === 'buy' && (decision.action !== 'BUY' && decision.action !== 'ADD')) return;
                     
                     const card = document.createElement('div');

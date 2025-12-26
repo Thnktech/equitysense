@@ -80,7 +80,7 @@
                             <i class="fa-solid fa-file-pdf"></i> Report
                         </button>
                         <button id="refreshBtn" class="btn-secondary">
-                            <i class="fa-solid fa-arrows-rotate"></i> Update Prices
+                            <i class="fa-solid fa-arrows-rotate"></i> Update All
                         </button>
                         <button id="addStockBtn" class="btn-primary">
                             <i class="fa-solid fa-plus"></i> Add Position
@@ -207,7 +207,7 @@
                     <button id="runBuyScanBtn" class="btn-success"><i class="fa-solid fa-rocket"></i> Scan Opportunities</button>
                 </header>
                 <div class="card note-card" style="border-left-color: var(--success)">
-                    <p><strong>Strategy:</strong> Identifies stocks with High Quality scores that are currently safe to accumulate.</p>
+                    <p><strong>Strategy:</strong> Identifies high-quality stocks (Score > 80) that are currently underweight relative to your profile.</p>
                 </div>
                 <div id="buyGrid" class="firewall-grid">
                     <div class="empty-state"><i class="fa-solid fa-cart-plus"></i><p>Click "Scan Opportunities" to find winners.</p></div>
@@ -243,8 +243,8 @@
                         </ol>
                     </div>
                     <div class="card doc-block">
-                        <h2>2. Why is "Exit" showing everything?</h2>
-                        <p>If you see errors or "Broken" statuses everywhere, click <strong>Update Prices</strong> in the Portfolio tab first. The Decision Engine needs fresh data (Growth, PE, Debt) to calculate scores. Without data, it assumes the worst (Score 0).</p>
+                        <h2>2. Data Handling & Zeros</h2>
+                        <p>If metrics show "0%" or scores are low, the API likely returned incomplete data due to rate limits (5 calls/min). Please wait a minute and click "Refresh" on the specific stock.</p>
                     </div>
                 </div>
             </section>
@@ -288,10 +288,10 @@
                 <div class="group">
                     <label>Thesis Pillars (Select 1-2 Drivers)</label>
                     <div class="pillars-select">
-                        <label><input type="checkbox" name="pillar" value="growth"> Growth (Rev/EPS)</label>
-                        <label><input type="checkbox" name="pillar" value="quality"> Quality (ROE/Margin)</label>
-                        <label><input type="checkbox" name="pillar" value="safety"> Safety (Debt/Cash)</label>
-                        <label><input type="checkbox" name="pillar" value="value"> Value (P/E)</label>
+                        <label><input type="checkbox" name="pillar" value="growth"> Growth</label>
+                        <label><input type="checkbox" name="pillar" value="quality"> Quality</label>
+                        <label><input type="checkbox" name="pillar" value="safety"> Safety</label>
+                        <label><input type="checkbox" name="pillar" value="value"> Value</label>
                     </div>
                 </div>
                 <div class="group"><label>Thesis Notes</label><textarea id="mThesis" rows="3" placeholder="Why do you own this?"></textarea></div>
