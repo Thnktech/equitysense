@@ -1,22 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     console.log("System initializing...");
 
-    const Store = {
-        portfolio: JSON.parse(localStorage.getItem('ep_portfolio')) || [],
-        settings: JSON.parse(localStorage.getItem('ep_settings')) || { currency: 'USD' },
-        profile: JSON.parse(localStorage.getItem('ep_profile')) || null,
-        cache: JSON.parse(localStorage.getItem('ep_cache')) || {},
-        exchangeRate: 1.0,
-        
-        getApiKey: () => sessionStorage.getItem('ep_api_key'),
-        setApiKey: (key) => sessionStorage.setItem('ep_api_key', key),
-        savePortfolio: () => localStorage.setItem('ep_portfolio', JSON.stringify(Store.portfolio)),
-        saveProfile: () => localStorage.setItem('ep_profile', JSON.stringify(Store.profile)),
-        saveCache: () => localStorage.setItem('ep_cache', JSON.stringify(Store.cache)),
-        saveSettings: () => localStorage.setItem('ep_settings', JSON.stringify(Store.settings)),
-        generateId: () => '_' + Math.random().toString(36).substr(2, 9)
-    };
-
+    // CONFIGURATION CONSTANTS
     const InvestorTypes = {
         "Compounder": { id: 1, name: "Long-Term Compounder", desc: "Maximizes long-term intrinsic value.", weights: { growth: 0.4, quality: 0.4, safety: 0.1, value: 0.1 }, pillars:['growth','quality'] },
         "Redeployer": { id: 2, name: "Capital Redeployer", desc: "Reallocates capital to best opportunities.", weights: { value: 0.4, momentum: 0.2, growth: 0.2, safety: 0.2 }, pillars:['value','growth'] },
@@ -35,8 +20,43 @@ document.addEventListener('DOMContentLoaded', () => {
         "PreservationPlus": { id: 15, name: "Capital-Preservation-Plus", desc: "Beat inflation, low risk.", weights: { safety: 0.7, quality: 0.2, dividend: 0.1, growth: 0.0 }, pillars:['safety','value'] }
     };
 
+    // --- SELF-HEALING STORAGE HELPER ---
+    const safeParse = (key, fallback) => {
+        try {
+            const item = localStorage.getItem(key);
+            if (!item) return fallback;
+            const data = JSON.parse(item);
+            
+            // VALIDATION: If Profile is stored but invalid key, reset it
+            if (key === 'ep_profile' && data && (!data.type || !InvestorTypes[data.type])) {
+                console.warn("Corrupt Profile detected. Resetting.");
+                return null;
+            }
+            return data;
+        } catch (e) {
+            console.warn(`Corrupt data for ${key}, resetting.`);
+            return fallback;
+        }
+    };
+
+    const Store = {
+        portfolio: safeParse('ep_portfolio', []),
+        settings: safeParse('ep_settings', { currency: 'USD' }),
+        profile: safeParse('ep_profile', null),
+        cache: safeParse('ep_cache', {}),
+        exchangeRate: 1.0,
+        
+        getApiKey: () => sessionStorage.getItem('ep_api_key'),
+        setApiKey: (key) => sessionStorage.setItem('ep_api_key', key),
+        savePortfolio: () => localStorage.setItem('ep_portfolio', JSON.stringify(Store.portfolio)),
+        saveProfile: () => localStorage.setItem('ep_profile', JSON.stringify(Store.profile)),
+        saveCache: () => localStorage.setItem('ep_cache', JSON.stringify(Store.cache)),
+        saveSettings: () => localStorage.setItem('ep_settings', JSON.stringify(Store.settings)),
+        generateId: () => '_' + Math.random().toString(36).substr(2, 9)
+    };
+
     const getRebalanceLimits = (typeKey) => {
-        if (!typeKey) return { max: 0.15 };
+        if (!typeKey || !InvestorTypes[typeKey]) return { max: 0.15 };
         if (typeKey === "Concentrator" || typeKey === "Compounder") return { max: 0.25 };
         if (typeKey === "RiskMinimizer" || typeKey === "Stabilizer") return { max: 0.10 };
         return { max: 0.15 };
@@ -72,7 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 task.callback(data);
             } catch (err) { console.error(err); UI.toast("API Error", "error"); }
             
-            let countdown = 120; 
+            let countdown = 120; // 12s delay
             const timer = setInterval(() => {
                 countdown--;
                 UI.updateProgress((120 - countdown) / 120 * 100);
@@ -86,7 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         fetchData: async (params) => {
             const key = Store.getApiKey();
-            if (!key) throw new Error("Missing API Key");
+            if (!key) throw new Error("Missing Key");
             const url = `${API.baseUrl}?` + new URLSearchParams({ ...params, apikey: key });
             const res = await fetch(url);
             return await res.json();
@@ -123,6 +143,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!tbody) return;
             tbody.innerHTML = '';
             let totalInv = 0, totalVal = 0;
+
             Store.portfolio.forEach((stock, idx) => {
                 const sShares = parseFloat(stock.shares);
                 const sPrice = parseFloat(stock.price);
@@ -131,16 +152,37 @@ document.addEventListener('DOMContentLoaded', () => {
                 const cost = sPrice * sShares;
                 let ret = 0;
                 if(sCurr && sCurr !== sPrice) ret = ((val - cost) / cost) * 100;
-                totalInv += cost; totalVal += val;
+                
+                totalInv += cost;
+                totalVal += val;
+
                 const tr = document.createElement('tr');
-                tr.innerHTML = `<td style="font-weight:700; font-family: var(--font-mono)">${stock.symbol}</td><td>${sShares}</td><td>${UI.fmtMoney(sPrice)}</td><td style="color:${stock.currentPrice?'':'var(--text-secondary)'}">${stock.currentPrice?UI.fmtMoney(sCurr):'Pending...'}</td><td>${UI.fmtMoney(val)}</td><td class="${ret>0?'positive':(ret<0?'negative':'')}">${UI.fmtPct(ret)}</td><td>${stock.conviction}</td><td><button class="btn-icon action-btn refresh-btn" data-index="${idx}" title="Update"><i class="fa-solid fa-rotate"></i></button><button class="btn-icon action-btn edit-btn" data-index="${idx}"><i class="fa-solid fa-pen"></i></button><button class="btn-icon action-btn delete-btn" data-id="${stock.id}" style="color:var(--danger)"><i class="fa-solid fa-trash"></i></button></td>`;
+                tr.innerHTML = `
+                    <td style="font-weight:700; font-family: var(--font-mono)">${stock.symbol}</td>
+                    <td>${sShares}</td>
+                    <td>${UI.fmtMoney(sPrice)}</td>
+                    <td style="color:${stock.currentPrice ? '' : 'var(--text-secondary)'}">
+                        ${stock.currentPrice ? UI.fmtMoney(sCurr) : 'Pending...'}
+                    </td>
+                    <td>${UI.fmtMoney(val)}</td>
+                    <td class="${ret > 0 ? 'positive' : (ret < 0 ? 'negative' : '')}">${UI.fmtPct(ret)}</td>
+                    <td>${stock.conviction}</td>
+                    <td>
+                        <button class="btn-icon action-btn refresh-btn" data-index="${idx}" title="Update Price"><i class="fa-solid fa-rotate"></i></button>
+                        <button class="btn-icon action-btn edit-btn" data-index="${idx}" title="Edit"><i class="fa-solid fa-pen"></i></button>
+                        <button class="btn-icon action-btn delete-btn" data-id="${stock.id}" style="color:var(--danger)" title="Delete"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                `;
                 tbody.appendChild(tr);
             });
+
             document.getElementById('totalInvested').innerText = UI.fmtMoney(totalInv);
             document.getElementById('totalValue').innerText = UI.fmtMoney(totalVal);
             const ret = totalInv > 0 ? ((totalVal - totalInv) / totalInv) * 100 : 0;
             const retEl = document.getElementById('totalReturn');
-            retEl.innerText = UI.fmtPct(ret); retEl.className = ret >= 0 ? 'positive' : 'negative';
+            retEl.innerText = UI.fmtPct(ret);
+            retEl.className = ret >= 0 ? 'positive' : 'negative';
+            
             App.updateCharts();
         }
     };
@@ -173,7 +215,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             let activePillars = pillars;
             if(!activePillars || activePillars.length === 0) {
-                if(Store.profile && Store.profile.type) {
+                if(Store.profile && Store.profile.type && InvestorTypes[Store.profile.type]) {
                     activePillars = InvestorTypes[Store.profile.type].pillars;
                 } else {
                     activePillars = ['quality', 'value'];
@@ -192,6 +234,7 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         calculateDecision: (stock, scoreData, weight, limit) => {
             if (!scoreData.vec.hasData) return { action: "WAIT", reason: "Data Pending...", css: "bg-pending" };
+            
             const { vec } = scoreData;
             const isOverweight = weight > limit;
             
@@ -207,7 +250,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const ProfileEngine = {
         init: () => {
-            const activeProfile = Store.profile || { name: "Neutral Value", maxAlloc: 0.15, pillars: ['quality','value'] };
             if (Store.profile) ProfileEngine.renderDashboard(Store.profile);
             else ProfileEngine.renderQuiz();
             
@@ -257,7 +299,9 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('quizView').classList.add('hidden');
             document.getElementById('profileDashboard').classList.remove('hidden');
             document.getElementById('retakeQuizBtn').classList.remove('hidden');
-            const type = InvestorTypes[Store.profile.type];
+            const type = InvestorTypes[p.type || "Compounder"];
+            if (!type) { console.warn("Invalid profile type, resetting"); Store.profile=null; ProfileEngine.renderQuiz(); return; }
+            
             document.getElementById('profileTypeName').innerText = type.name;
             document.getElementById('profileTypeDesc').innerText = type.desc;
             const wContainer = document.getElementById('profileWeights');
@@ -286,7 +330,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     card.innerHTML = `<div class="health-score-box"><span class="health-score-val" style="color:${vec.thesis>6?'var(--success)':'var(--danger)'}">${vec.thesis}/10</span><small>Thesis</small></div><div class="health-details"><h4>${stock.symbol}</h4><div class="data-grid-mini"><div class="mini-item"><span class="mini-label">Growth</span><span class="mini-val">${raw.revG.toFixed(1)}%</span></div><div class="mini-item"><span class="mini-label">ROE</span><span class="mini-val">${raw.roe.toFixed(1)}%</span></div><div class="mini-item"><span class="mini-label">D/E</span><span class="mini-val">${raw.debt.toFixed(2)}</span></div></div></div>`;
                     grid.appendChild(card);
                 } else {
-                    grid.innerHTML += `<div class="health-card"><h4>${stock.symbol}</h4><small>Waiting for data... Click Update in Portfolio.</small></div>`;
+                    grid.innerHTML += `<div class="health-card"><h4>${stock.symbol}</h4><small>Waiting for data...</small></div>`;
                 }
             });
             
@@ -304,15 +348,24 @@ document.addEventListener('DOMContentLoaded', () => {
         
         init: () => {
             try {
+                // FIXED ORDER: DOM must be ready before Charts
                 App.initCharts();
                 UI.renderPortfolio();
                 App.setupEventListeners();
                 ProfileEngine.init();
+                
                 document.getElementById('currencySwitch').checked = (Store.settings.currency === 'EUR');
                 document.getElementById('currLabel').innerText = Store.settings.currency === 'EUR' ? 'EUR' : 'USD';
-                if(Store.getApiKey()) { document.getElementById('apiStatusDot').style.background = 'var(--success)'; API.fetchExchangeRate(); }
-                console.log("App Initialized");
-            } catch (e) { console.error(e); UI.toast("Init Failed", "error"); }
+                
+                if(Store.getApiKey()) { 
+                    document.getElementById('apiStatusDot').style.background = 'var(--success)'; 
+                    API.fetchExchangeRate(); 
+                }
+                console.log("App Initialized Successfully");
+            } catch (e) { 
+                console.error("Init Failed:", e); 
+                UI.toast("Init Failed (Check Console)", "error"); 
+            }
         },
         
         setupEventListeners: () => {
@@ -323,43 +376,39 @@ document.addEventListener('DOMContentLoaded', () => {
                     btn.classList.add('active');
                     const tab = btn.getAttribute('data-tab');
                     document.getElementById(tab).classList.add('active');
-                    if(tab === 'firewall') App.runFirewall('all');
+                    if(tab === 'exit' || tab === 'buy' || tab === 'firewall') App.runExitEngine(tab);
                     if(tab === 'profile') ProfileEngine.runHealthCheck();
                 });
             });
             document.getElementById('refreshBtn').addEventListener('click', () => {
                 if(Store.portfolio.length === 0) return UI.toast("No stocks to update", "error");
                 UI.toast(`Queuing updates...`);
+                document.getElementById('lastUpdated').innerText = `Updating...`;
                 Store.portfolio.forEach((s, idx) => {
                     App.updateSingleStock(idx, true);
                     API.enqueue({ function: 'OVERVIEW', symbol: s.symbol }, () => {
                         const activeTab = document.querySelector('.view.active').id;
                         if(activeTab === 'profile') ProfileEngine.runHealthCheck();
-                        if(activeTab === 'firewall') App.runFirewall();
+                        if(activeTab === 'firewall' || activeTab === 'buy' || activeTab === 'exit') App.runExitEngine(activeTab);
                     });
                 });
             });
             
             document.getElementById('currencySwitch').addEventListener('change', (e) => { Store.settings.currency = e.target.checked ? 'EUR' : 'USD'; Store.saveSettings(); document.getElementById('currLabel').innerText = Store.settings.currency === 'EUR' ? 'EUR' : 'USD'; UI.renderPortfolio(); });
             document.getElementById('exportPdfBtn').addEventListener('click', () => {
-                const tpl = document.getElementById('pdf-template').cloneNode(true); // Use cloned template
-                tpl.style.display = 'block'; // Make visible in logic (not UI)
+                const tpl = document.getElementById('pdf-template').cloneNode(true); // Clone
+                tpl.style.display = 'block'; // Make visible to renderer
                 
-                // 1. Header Date
                 tpl.querySelector('#pdfDate').innerText = new Date().toLocaleDateString();
-                
-                // 2. Profile
                 tpl.querySelector('#pdfProfile').innerHTML = Store.profile ? 
                     `<strong>${InvestorTypes[Store.profile.type].name}</strong><br>${InvestorTypes[Store.profile.type].desc}` : "No Profile Set";
                 
-                // 3. Portfolio
                 const pfBody = tpl.querySelector('#pdfPortfolioBody');
                 pfBody.innerHTML = '';
                 Store.portfolio.forEach(s => {
-                    pfBody.innerHTML += `<tr><td>${s.symbol}</td><td>${s.shares}</td><td>${UI.fmtMoney((s.currentPrice||s.price)*s.shares)}</td><td>${s.conviction}</td><td>${((((s.currentPrice||s.price)-s.price)/s.price)*100).toFixed(2)}%</td></tr>`;
+                    pfBody.innerHTML += `<tr><td>${s.symbol}</td><td>${s.shares}</td><td>${UI.fmtMoney((s.currentPrice||s.price)*s.shares)}</td><td>${((((s.currentPrice||s.price)-s.price)/s.price)*100).toFixed(2)}%</td><td>${s.conviction}</td></tr>`;
                 });
 
-                // 4. Firewall Logic
                 const fwBody = tpl.querySelector('#pdfFirewallBody');
                 fwBody.innerHTML = '';
                 Store.portfolio.forEach(s => {
@@ -372,8 +421,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
 
-                // Generate
-                const opt = { margin: 0.5, filename: `EquitySense_Report_${new Date().toISOString().split('T')[0]}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' } };
+                const opt = { margin: 0.5, filename: 'EquitySense_Report.pdf', image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' } };
                 html2pdf().set(opt).from(tpl).save();
             });
             
@@ -382,7 +430,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 btn.addEventListener('click', () => {
                     document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
-                    App.runFirewall(btn.getAttribute('data-filter'));
+                    App.runExitEngine('firewall', btn.getAttribute('data-filter'));
                 });
             });
 
@@ -392,7 +440,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('stockForm').reset(); 
                 document.getElementById('editIndex').value = ''; 
                 // Auto-Select Pillars based on Profile
-                if(Store.profile && Store.profile.type) {
+                if(Store.profile && Store.profile.type && InvestorTypes[Store.profile.type]) {
                     const type = InvestorTypes[Store.profile.type];
                     if(type.pillars) type.pillars.forEach(p => { 
                         const cb = document.querySelector(`input[value="${p}"]`);
@@ -421,11 +469,34 @@ document.addEventListener('DOMContentLoaded', () => {
                 else if(btn.classList.contains('delete-btn')) App.deleteStock(btn.getAttribute('data-id'));
                 else if(btn.classList.contains('refresh-btn')) App.updateSingleStock(idx);
             });
-            document.getElementById('exportBtn').addEventListener('click', () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify({ portfolio: Store.portfolio })], {type: 'application/json'})); a.download = `portfolio_${Date.now()}.json`; a.click(); });
-            const handleImp = (e, replace) => { const reader = new FileReader(); reader.onload = (ev) => { try { Store.portfolio = replace ? JSON.parse(ev.target.result).portfolio : [...Store.portfolio, ...JSON.parse(ev.target.result).portfolio]; Store.savePortfolio(); UI.renderPortfolio(); UI.toast("Import Successful"); } catch(err) { UI.toast("Import Failed", "error"); } }; if(e.target.files.length > 0) reader.readAsText(e.target.files[0]); };
-            document.getElementById('importMerge').onchange = (e) => handleImp(e, false); document.getElementById('importReplace').onchange = (e) => handleImp(e, true);
+            document.getElementById('exportBtn').addEventListener('click', () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify({ portfolio: Store.portfolio, profile: Store.profile })], {type: 'application/json'})); a.download = `portfolio_${Date.now()}.json`; a.click(); });
             
-            document.getElementById('runAuditBtn').addEventListener('click', () => App.runFirewall());
+            // --- FIXED IMPORT LOGIC ---
+            document.getElementById('importFile').addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    try {
+                        const json = JSON.parse(ev.target.result);
+                        // PERMISSIVE RESTORE: Support legacy (Array) or new (Object) structure
+                        const newPortfolio = Array.isArray(json) ? json : (json.portfolio || []);
+                        Store.portfolio = newPortfolio;
+                        if(json.profile) Store.profile = json.profile;
+                        
+                        Store.savePortfolio();
+                        Store.saveProfile();
+                        UI.renderPortfolio();
+                        UI.toast("Restore Successful");
+                    } catch (err) { console.error(err); UI.toast("Invalid File", "error"); }
+                };
+                reader.readAsText(file);
+                e.target.value = ''; // Reset input to allow re-selecting same file
+            });
+            
+            document.getElementById('runExitScanBtn').addEventListener('click', () => App.runExitEngine('exit'));
+            document.getElementById('runBuyScanBtn').addEventListener('click', () => App.runExitEngine('buy'));
+            document.getElementById('runAuditBtn').addEventListener('click', () => App.runExitEngine('firewall'));
         },
 
         updateSingleStock: (idx, isBulk = false) => {
@@ -442,9 +513,12 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         },
 
-        runFirewall: (filter = 'all') => {
-            const grid = document.getElementById('firewallGrid');
+        runExitEngine: (mode, filter = 'all') => {
+            const gridId = mode === 'buy' ? 'buyGrid' : (mode === 'firewall' ? 'firewallGrid' : 'exitGrid');
+            const grid = document.getElementById(gridId);
             grid.innerHTML = '';
+            
+            if(!Store.profile && (mode ==='buy' || mode==='exit')) return grid.innerHTML = '<div class="empty-state">Complete Profile first.</div>';
             
             let count = 0;
             const totalVal = Store.portfolio.reduce((acc,s) => acc + (s.currentPrice * s.shares), 0);
@@ -458,8 +532,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     const decision = ScoringEngine.calculateDecision(stock, scoreData, weight, limit);
                     
-                    if (filter === 'actionable' && decision.action === 'HOLD') return;
-                    if (filter === 'warning' && (decision.action === 'BUY' || decision.action === 'ADD' || decision.action === 'HOLD')) return;
+                    if (mode === 'exit' && (decision.action === 'HOLD' || decision.action === 'BUY' || decision.action === 'ADD' || decision.action === 'WAIT')) return;
+                    if (mode === 'buy' && (decision.action !== 'BUY' && decision.action !== 'ADD')) return;
+                    if (mode === 'firewall') {
+                        if(filter === 'actionable' && decision.action === 'HOLD') return;
+                        if(filter === 'warning' && (decision.action === 'BUY' || decision.action === 'ADD')) return;
+                    }
                     
                     const card = document.createElement('div');
                     card.className = 'audit-card';
@@ -468,7 +546,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     count++;
                 }
             });
-            if(count === 0) grid.innerHTML = '<div class="empty-state">No active signals.</div>';
+            if(count === 0) grid.innerHTML = '<div class="empty-state">No signals found.</div>';
         },
 
         editStock: (idx) => {
@@ -499,7 +577,7 @@ document.addEventListener('DOMContentLoaded', () => {
             App.charts.alloc.data.labels = labels; App.charts.alloc.data.datasets[0].data = data; App.charts.alloc.data.datasets[0].backgroundColor = colors; App.charts.alloc.update();
             App.charts.perf.data.labels = labels;
             App.charts.perf.data.datasets[0].data = Store.portfolio.map(s => { const cost = parseFloat(s.price) * parseFloat(s.shares); const curr = (s.currentPrice ? parseFloat(s.currentPrice) : parseFloat(s.price)) * parseFloat(s.shares); return ((curr - cost) / cost) * 100; });
-            App.charts.perf.data.datasets[0].backgroundColor = colors;
+            App.charts.perf.data.datasets[0].backgroundColor = App.charts.perf.data.datasets[0].data.map(v => v >= 0 ? '#22c55e' : '#ef4444');
             App.charts.perf.update();
         }
     };

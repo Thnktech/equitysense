@@ -26,8 +26,14 @@
                 <button class="nav-btn" data-tab="profile">
                     <i class="fa-solid fa-user-doctor"></i> Profile & Health
                 </button>
+                <button class="nav-btn" data-tab="exit">
+                    <i class="fa-solid fa-door-open"></i> Exit Strategy
+                </button>
+                <button class="nav-btn" data-tab="buy">
+                    <i class="fa-solid fa-cart-plus"></i> Buy Candidates
+                </button>
                 <button class="nav-btn firewall-btn" data-tab="firewall">
-                    <i class="fa-solid fa-shield-halved"></i> Firewall (Decision)
+                    <i class="fa-solid fa-fire-extinguisher"></i> Firewall
                 </button>
                 
                 <div class="nav-divider"></div>
@@ -70,7 +76,6 @@
                             </label>
                             <span>EUR</span>
                         </div>
-                        
                         <button id="exportPdfBtn" class="btn-outline" title="Save Report">
                             <i class="fa-solid fa-file-pdf"></i> Report
                         </button>
@@ -168,6 +173,32 @@
                     <div id="healthGrid" class="health-grid">
                         <div class="empty-state"><i class="fa-solid fa-user-doctor"></i><p>Click "Refresh Health" to run diagnostic.</p></div>
                     </div>
+                </div>
+            </section>
+
+            <section id="exit" class="view">
+                <header class="top-bar">
+                    <h1>Exit Strategy Engine</h1>
+                    <button id="runExitScanBtn" class="btn-danger"><i class="fa-solid fa-filter"></i> Run Decision Scan</button>
+                </header>
+                <div class="card note-card" style="border-left-color: var(--danger)">
+                    <p><strong>Strict Logic:</strong> This tab ONLY shows stocks that have triggered a risk warning (Broken Thesis, Valuation Extreme, or Allocation Breach).</p>
+                </div>
+                <div id="exitGrid" class="firewall-grid">
+                    <div class="empty-state"><i class="fa-solid fa-list-ol"></i><p>Click "Run Decision Scan" to evaluate positions.</p></div>
+                </div>
+            </section>
+
+            <section id="buy" class="view">
+                <header class="top-bar">
+                    <h1>Buy Candidates</h1>
+                    <button id="runBuyScanBtn" class="btn-success"><i class="fa-solid fa-rocket"></i> Scan Opportunities</button>
+                </header>
+                <div class="card note-card" style="border-left-color: var(--success)">
+                    <p><strong>Strategy:</strong> Identifies high-quality stocks (Score > 80) that are currently underweight relative to your profile.</p>
+                </div>
+                <div id="buyGrid" class="firewall-grid">
+                    <div class="empty-state"><i class="fa-solid fa-cart-plus"></i><p>Click "Scan Opportunities" to find winners.</p></div>
                 </div>
             </section>
 
