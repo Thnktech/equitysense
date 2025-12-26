@@ -26,14 +26,8 @@
                 <button class="nav-btn" data-tab="profile">
                     <i class="fa-solid fa-user-doctor"></i> Profile & Health
                 </button>
-                <button class="nav-btn" data-tab="exit">
-                    <i class="fa-solid fa-door-open"></i> Exit Strategy
-                </button>
-                <button class="nav-btn" data-tab="buy">
-                    <i class="fa-solid fa-cart-plus"></i> Buy Candidates
-                </button>
                 <button class="nav-btn firewall-btn" data-tab="firewall">
-                    <i class="fa-solid fa-fire-extinguisher"></i> Firewall
+                    <i class="fa-solid fa-shield-halved"></i> Firewall (Decision)
                 </button>
                 
                 <div class="nav-divider"></div>
@@ -76,6 +70,7 @@
                             </label>
                             <span>EUR</span>
                         </div>
+                        
                         <button id="exportPdfBtn" class="btn-outline" title="Save Report">
                             <i class="fa-solid fa-file-pdf"></i> Report
                         </button>
@@ -170,35 +165,25 @@
                         <h3>Portfolio Diagnostic</h3>
                         <button id="runHealthCheckBtn" class="btn-primary"><i class="fa-solid fa-stethoscope"></i> Refresh Health</button>
                     </div>
+                    
+                    <div class="metrics-grid" style="margin-top: 1rem;">
+                        <div class="card metric-card">
+                            <span>System Health</span>
+                            <h2 id="sysHealthGrade">--</h2>
+                        </div>
+                        <div class="card metric-card">
+                            <span>Concentration Risk</span>
+                            <h2 id="sysConcRisk">--</h2>
+                        </div>
+                        <div class="card metric-card">
+                            <span>Broken Thesis Capital</span>
+                            <h2 id="sysBrokenCap">--</h2>
+                        </div>
+                    </div>
+
                     <div id="healthGrid" class="health-grid">
                         <div class="empty-state"><i class="fa-solid fa-user-doctor"></i><p>Click "Refresh Health" to run diagnostic.</p></div>
                     </div>
-                </div>
-            </section>
-
-            <section id="exit" class="view">
-                <header class="top-bar">
-                    <h1>Exit Strategy Engine</h1>
-                    <button id="runExitScanBtn" class="btn-danger"><i class="fa-solid fa-filter"></i> Run Decision Scan</button>
-                </header>
-                <div class="card note-card" style="border-left-color: var(--danger)">
-                    <p><strong>Strict Logic:</strong> This tab ONLY shows stocks that have triggered a risk warning (Broken Thesis, Valuation Extreme, or Allocation Breach).</p>
-                </div>
-                <div id="exitGrid" class="firewall-grid">
-                    <div class="empty-state"><i class="fa-solid fa-list-ol"></i><p>Click "Run Decision Scan" to evaluate positions.</p></div>
-                </div>
-            </section>
-
-            <section id="buy" class="view">
-                <header class="top-bar">
-                    <h1>Buy Candidates</h1>
-                    <button id="runBuyScanBtn" class="btn-success"><i class="fa-solid fa-rocket"></i> Scan Opportunities</button>
-                </header>
-                <div class="card note-card" style="border-left-color: var(--success)">
-                    <p><strong>Strategy:</strong> Identifies high-quality stocks (Score > 80) that are currently underweight relative to your profile.</p>
-                </div>
-                <div id="buyGrid" class="firewall-grid">
-                    <div class="empty-state"><i class="fa-solid fa-cart-plus"></i><p>Click "Scan Opportunities" to find winners.</p></div>
                 </div>
             </section>
 
@@ -230,51 +215,26 @@
                     <div class="card doc-block disclaimer">
                         <h3 style="color:var(--warning)">Legal Disclaimer</h3>
                         <p>EquitySense is an educational tool for portfolio tracking and behavioral analysis. <strong>It does not provide financial advice.</strong></p>
-                        <ul class="doc-list">
-                            <li><strong>Data:</strong> Market data is provided by third-party APIs and may be delayed.</li>
-                            <li><strong>Calculations:</strong> Scores are based on standard financial ratios, not predictive models.</li>
-                            <li><strong>Liability:</strong> You are solely responsible for your investment decisions.</li>
-                        </ul>
                     </div>
-
                     <div class="card doc-block">
-                        <h2>1. Core Philosophy</h2>
-                        <p>This application acts as a <strong>rational buffer</strong> between market noise and your capital. It forces you to define <em>why</em> you own a stock before you buy it, and checks if those reasons still hold true before you sell it.</p>
+                        <h2>1. Scoring Logic Explained</h2>
+                        <p>How the 0-10 Thesis Score is calculated:</p>
+                        <table class="data-table" style="margin-top:10px">
+                            <thead><tr><th>Metric</th><th>Condition</th><th>Points</th></tr></thead>
+                            <tbody>
+                                <tr><td><strong>Growth</strong></td><td>Rev > 15% or EPS > 15%</td><td>+5</td></tr>
+                                <tr><td></td><td>Rev > 0% or EPS > 0%</td><td>+2</td></tr>
+                                <tr><td><strong>Quality</strong></td><td>ROE > 20%</td><td>+5</td></tr>
+                                <tr><td></td><td>ROE > 10%</td><td>+3</td></tr>
+                                <tr><td><strong>Safety</strong></td><td>Debt/Eq < 0.5</td><td>+6</td></tr>
+                                <tr><td></td><td>Debt/Eq < 1.0</td><td>+3</td></tr>
+                                <tr><td><strong>Value</strong></td><td>P/E < 15</td><td>+10</td></tr>
+                            </tbody>
+                        </table>
                     </div>
-
                     <div class="card doc-block">
-                        <h2>2. Diagnostic Metrics Explained</h2>
-                        <p>The "Firewall" scores stocks based on five key dimensions. We do not use price action as a primary signal.</p>
-                        
-                        <div class="feature-item">
-                            <h4><i class="fa-solid fa-seedling" style="color:var(--success)"></i> Growth Health</h4>
-                            <p>Measures the trajectory of the business. We look for consistent expansion in <strong>Revenue</strong> (Top Line) and <strong>Earnings Per Share</strong> (Bottom Line). A broken growth thesis is often the first sell signal.</p>
-                        </div>
-
-                        <div class="feature-item">
-                            <h4><i class="fa-solid fa-gem" style="color:var(--accent)"></i> Quality & Moat</h4>
-                            <p>Assesses management efficiency and competitive advantage. We analyze <strong>Return on Equity (ROE)</strong> and <strong>Operating Margins</strong>. High quality scores indicate a business that compounds capital efficiently.</p>
-                        </div>
-
-                        <div class="feature-item">
-                            <h4><i class="fa-solid fa-shield-heart" style="color:var(--warning)"></i> Safety & Balance Sheet</h4>
-                            <p>Evaluates the risk of bankruptcy or dilution. We scrutinize the <strong>Debt-to-Equity Ratio</strong>. A low score here indicates excessive leverage, which is dangerous in downturns.</p>
-                        </div>
-
-                        <div class="feature-item">
-                            <h4><i class="fa-solid fa-tag" style="color:var(--text-secondary)"></i> Valuation</h4>
-                            <p>Ensures you aren't overpaying. We use the <strong>P/E Ratio</strong> relative to the market baseline. While high quality commands a premium, extreme valuation drags down your safety score.</p>
-                        </div>
-                    </div>
-
-                    <div class="card doc-block">
-                        <h2>3. The "Firewall" Logic</h2>
-                        <p>The system generates a decision (Buy, Hold, Trim, Exit) by cross-referencing three layers:</p>
-                        <ol class="doc-list">
-                            <li><strong>Fundamental Health:</strong> Is the business broken? (Low Vector Score)</li>
-                            <li><strong>Thesis Check:</strong> Did it fail the specific pillars you selected? (e.g., You bought for Growth, but growth stopped).</li>
-                            <li><strong>Portfolio Risk:</strong> Is the position size larger than your Profile allows? (Overweight).</li>
-                        </ol>
+                        <h2>2. Data Handling</h2>
+                        <p>If metrics show "0%" or scores are low, click <strong>Update All</strong>. The free API allows 5 calls/min, so updates are queued sequentially.</p>
                     </div>
                 </div>
             </section>
@@ -329,7 +289,7 @@
                 </table>
             </div>
             
-            <div style="margin-top:50px; text-align:center; font-size:10px; color:#999; border-top:1px solid #eee; padding-top:10px;">Generated by EquitySense Local Engine. Not Financial Advice.</div>
+            <div style="margin-top:50px; text-align:center; font-size:10px; color:#999; border-top:1px solid #eee; padding-top:10px;">Generated by EquitySense Local Engine.</div>
         </div>
     </div>
 
