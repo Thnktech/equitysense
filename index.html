@@ -62,10 +62,6 @@
                 <header class="top-bar">
                     <h1>Portfolio Dashboard</h1>
                     <div class="actions">
-                        <button id="toggleBlindModeBtn" class="btn-outline" title="Hide prices to focus on business quality">
-                            <i class="fa-solid fa-eye-slash"></i> Blind Mode
-                        </button>
-                        
                         <div class="currency-toggle">
                             <span id="currLabel">USD</span>
                             <label class="switch">
@@ -74,9 +70,11 @@
                             </label>
                             <span>EUR</span>
                         </div>
-                        
+                        <button id="exportPdfBtn" class="btn-outline" title="Save Report">
+                            <i class="fa-solid fa-file-pdf"></i> Report
+                        </button>
                         <button id="refreshBtn" class="btn-secondary">
-                            <i class="fa-solid fa-arrows-rotate"></i> Update Data
+                            <i class="fa-solid fa-arrows-rotate"></i> Update All
                         </button>
                         <button id="addStockBtn" class="btn-primary">
                             <i class="fa-solid fa-plus"></i> Add Position
@@ -114,8 +112,7 @@
                     <div class="table-header">
                         <h3>Holdings <small id="lastUpdated" style="font-weight:400; font-size:0.8rem; margin-left:10px; color:var(--text-secondary)"></small></h3>
                         <div class="data-controls">
-                            <button id="exportPdfBtn" class="btn-outline"><i class="fa-solid fa-file-pdf"></i> Report</button>
-                            <button id="exportBtn" class="btn-outline">Backup JSON</button>
+                            <button id="exportBtn" class="btn-outline">Backup</button>
                             <label class="btn-outline">Restore <input type="file" id="importReplace" hidden></label>
                         </div>
                     </div>
@@ -123,11 +120,7 @@
                         <table class="data-table">
                             <thead>
                                 <tr>
-                                    <th>Ticker</th><th>Shares</th><th>Avg Cost</th>
-                                    <th class="price-col">Current</th>
-                                    <th class="price-col">Value</th>
-                                    <th class="price-col">Return</th>
-                                    <th>Conviction</th><th>Actions</th>
+                                    <th>Ticker</th><th>Shares</th><th>Avg Cost</th><th>Current</th><th>Value</th><th>Return</th><th>Conviction</th><th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="portfolioList"></tbody>
@@ -146,10 +139,12 @@
 
                 <div id="quizView" class="hidden">
                     <div class="card quiz-container">
-                        <h2>Investor DNA Test</h2>
-                        <p class="text-muted">Answer 10 questions to calibrate your risk engine. This sets your "Overweight" limits and "Buy" criteria.</p>
+                        <div class="quiz-header">
+                            <h2><i class="fa-solid fa-dna"></i> Investor DNA Analysis</h2>
+                            <p class="text-muted">This assessment calibrates the decision engine to your personal psychology. It determines how the system reacts to drawdowns and allocation risks.</p>
+                        </div>
                         <div id="quizQuestions"></div>
-                        <button id="submitQuizBtn" class="btn-primary full-width" style="margin-top:1rem">Generate Profile</button>
+                        <button id="submitQuizBtn" class="btn-primary full-width" style="margin-top:1.5rem; padding: 1rem;">Generate Comprehensive Profile</button>
                     </div>
                 </div>
 
@@ -160,17 +155,17 @@
                                 <small>Your Classification</small>
                                 <h2 id="profileTypeName">...</h2>
                             </div>
-                            <div class="profile-badge"><i class="fa-solid fa-dna"></i></div>
+                            <div class="profile-badge"><i class="fa-solid fa-sliders"></i></div>
                         </div>
                         <p id="profileTypeDesc" class="text-muted"></p>
                         <div class="weights-display" id="profileWeights"></div>
                     </div>
                     <div class="health-controls">
                         <h3>Portfolio Diagnostic</h3>
-                        <button id="runHealthCheckBtn" class="btn-primary"><i class="fa-solid fa-stethoscope"></i> Run Health Check</button>
+                        <button id="runHealthCheckBtn" class="btn-primary"><i class="fa-solid fa-stethoscope"></i> Refresh Health</button>
                     </div>
                     <div id="healthGrid" class="health-grid">
-                        <div class="empty-state"><i class="fa-solid fa-user-doctor"></i><p>Click "Run Health Check" to analyze portfolio structure.</p></div>
+                        <div class="empty-state"><i class="fa-solid fa-user-doctor"></i><p>Click "Refresh Health" to run diagnostic.</p></div>
                     </div>
                 </div>
             </section>
@@ -189,7 +184,7 @@
                 </header>
                 
                 <div class="card note-card">
-                    <p><strong>Master View:</strong> This engine combines your <em>Investor Profile</em> (Risk Limits) with <em>Fundamental Data</em> (Growth/Quality) to generate rational Buy/Sell/Hold signals.</p>
+                    <p><strong>Master View:</strong> Combines your <em>Investor Profile</em> (Risk Limits) with <em>Fundamental Data</em> to generate rational Buy/Sell/Hold signals.</p>
                 </div>
 
                 <div id="firewallGrid" class="firewall-grid">
@@ -198,27 +193,56 @@
             </section>
 
             <section id="docs" class="view">
-                <header class="top-bar"><h1>Documentation</h1></header>
+                <header class="top-bar"><h1>User Manual</h1></header>
                 <div class="docs-container">
                     <div class="card doc-block disclaimer">
-                        <h3 style="color:var(--warning)">Disclaimer</h3>
-                        <p>This tool is for educational purposes only. Scores are algorithmic. <strong>Not financial advice.</strong></p>
-                    </div>
-                    <div class="card doc-block">
-                        <h2>1. The "Firewall" Concept</h2>
-                        <p>The Firewall is your single source of truth. It replaces separate "Buy" and "Sell" lists. It filters every stock through:</p>
-                        <ul>
-                            <li><strong>Thesis Check:</strong> Is the business doing what you bought it for?</li>
-                            <li><strong>Allocation Check:</strong> Is the position too big for your risk profile?</li>
-                            <li><strong>Valuation Check:</strong> Is the price justified by growth?</li>
+                        <h3 style="color:var(--warning)">Legal Disclaimer</h3>
+                        <p>EquitySense is an educational tool for portfolio tracking and behavioral analysis. <strong>It does not provide financial advice.</strong></p>
+                        <ul class="doc-list">
+                            <li><strong>Data:</strong> Market data is provided by third-party APIs and may be delayed.</li>
+                            <li><strong>Calculations:</strong> Scores are based on standard financial ratios, not predictive models.</li>
+                            <li><strong>Liability:</strong> You are solely responsible for your investment decisions.</li>
                         </ul>
                     </div>
+
                     <div class="card doc-block">
-                        <h2>2. Behavioral Tools</h2>
-                        <ul>
-                            <li><strong>Blind Mode:</strong> Toggle the "Eye" icon in Portfolio to hide prices. This forces you to focus on the business quality, not the daily P/L.</li>
-                            <li><strong>Pre-Mortem Exit:</strong> When you delete a stock, the app asks you *why*. This simple pause reduces panic selling.</li>
-                        </ul>
+                        <h2>1. Core Philosophy</h2>
+                        <p>This application is designed to act as a <strong>rational buffer</strong> between market noise and your capital. It forces you to define <em>why</em> you own a stock before you buy it, and checks if those reasons still hold true before you sell it.</p>
+                    </div>
+
+                    <div class="card doc-block">
+                        <h2>2. Diagnostic Metrics Explained</h2>
+                        <p>The "Firewall" scores stocks based on five key dimensions. We do not use price action as a primary signal.</p>
+                        
+                        <div class="feature-item">
+                            <h4><i class="fa-solid fa-seedling" style="color:var(--success)"></i> Growth Health</h4>
+                            <p>Measures the trajectory of the business. We look for consistent expansion in <strong>Revenue</strong> (Top Line) and <strong>Earnings Per Share</strong> (Bottom Line). A broken growth thesis is often the first sell signal.</p>
+                        </div>
+
+                        <div class="feature-item">
+                            <h4><i class="fa-solid fa-gem" style="color:var(--accent)"></i> Quality & Moat</h4>
+                            <p>Assesses management efficiency and competitive advantage. We analyze <strong>Return on Equity (ROE)</strong> and <strong>Operating Margins</strong>. High quality scores indicate a business that compounds capital efficiently.</p>
+                        </div>
+
+                        <div class="feature-item">
+                            <h4><i class="fa-solid fa-shield-heart" style="color:var(--warning)"></i> Safety & Balance Sheet</h4>
+                            <p>Evaluates the risk of bankruptcy or dilution. We scrutinize the <strong>Debt-to-Equity Ratio</strong>. A low score here indicates excessive leverage, which is dangerous in downturns.</p>
+                        </div>
+
+                        <div class="feature-item">
+                            <h4><i class="fa-solid fa-tag" style="color:var(--text-secondary)"></i> Valuation</h4>
+                            <p>Ensures you aren't overpaying. We use the <strong>P/E Ratio</strong> relative to the market baseline. While high quality commands a premium, extreme valuation drags down your safety score.</p>
+                        </div>
+                    </div>
+
+                    <div class="card doc-block">
+                        <h2>3. The "Firewall" Logic</h2>
+                        <p>The system generates a decision (Buy, Hold, Trim, Exit) by cross-referencing three layers:</p>
+                        <ol class="doc-list">
+                            <li><strong>Fundamental Health:</strong> Is the business broken? (Low Vector Score)</li>
+                            <li><strong>Thesis Check:</strong> Did it fail the specific pillars you selected? (e.g., You bought for Growth, but growth stopped).</li>
+                            <li><strong>Portfolio Risk:</strong> Is the position size larger than your Profile allows? (Overweight).</li>
+                        </ol>
                     </div>
                 </div>
             </section>
@@ -227,15 +251,30 @@
                 <header class="top-bar"><h1>About</h1></header>
                 <div class="card about-card">
                     <div class="about-header">
-                        <div class="about-avatar"><i class="fa-solid fa-user-astronaut"></i></div>
-                        <div><h2>XXXX</h2><p class="text-muted">Lead Developer & Investor</p></div>
+                        <div class="about-logo">
+                            <i class="fa-solid fa-brain"></i>
+                        </div>
+                        <h2>EquitySense</h2>
+                        <p class="text-muted">Rational Capital Management</p>
                     </div>
-                    <hr style="border-color:var(--border); margin: 1rem 0;">
-                    <div class="about-details">
-                        <p>EquitySense is a "Decision Accountability System". It forces you to define a thesis before buying and requires a structured reason before selling.</p>
-                        <br>
-                        <div class="contact-box"><i class="fa-solid fa-envelope"></i> yyy@gmail.com</div>
+                    
+                    <div class="about-content">
+                        <p><strong>EquitySense</strong> was built to solve the problem of emotional investing.</p>
+                        <p>Most investors fail not because they can't pick stocks, but because they can't stick to a plan during volatility. By creating a digital "Firewall," this tool helps you compound wealth by enforcing discipline over impulse.</p>
                     </div>
+
+                    <div class="contact-section">
+                        <div class="contact-item">
+                            <small>Developer</small>
+                            <strong>XXXX</strong>
+                        </div>
+                        <div class="contact-item">
+                            <small>Support & Feedback</small>
+                            <strong>yyy@gmail.com</strong>
+                        </div>
+                    </div>
+                    
+                    <div class="version-tag">Version 2.1.0 (Stable)</div>
                 </div>
             </section>
         </main>
@@ -276,44 +315,7 @@
             </form>
         </div>
     </div>
-
-    <div id="exitReasonModal" class="modal-overlay">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>🛑 Exit Check (Pre-Mortem)</h3>
-                <button class="close-modal-exit"><i class="fa-solid fa-times"></i></button>
-            </div>
-            <form id="exitForm">
-                <input type="hidden" id="exitStockId">
-                <div class="note-card" style="margin-bottom:1rem; border-left-color: var(--warning);">
-                    <p><strong>Pause:</strong> Are you selling because the business is broken, or because the price is down? Documenting this reduces regret.</p>
-                </div>
-                <div class="group">
-                    <label>Primary Reason</label>
-                    <select id="exitReason" required>
-                        <option value="thesis_broken">Thesis Broken (Fundamental)</option>
-                        <option value="valuation">Valuation Extreme (Price)</option>
-                        <option value="concentration">Risk Management (Trim)</option>
-                        <option value="opportunity">Better Opportunity (Swap)</option>
-                        <option value="mistake">Original Analysis Wrong</option>
-                        <option value="liquidity">Need Cash (Personal)</option>
-                    </select>
-                </div>
-                <div class="group">
-                    <label>Action</label>
-                    <select id="exitActionType">
-                        <option value="trim">Partial Trim</option>
-                        <option value="exit">Full Exit</option>
-                    </select>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn-secondary close-modal-exit">Wait, Keep Holding</button>
-                    <button type="submit" class="btn-danger">Confirm Decision</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
+    
     <div id="toastContainer"></div>
 </body>
 </html>
