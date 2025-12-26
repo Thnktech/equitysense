@@ -17,7 +17,6 @@ document.addEventListener('DOMContentLoaded', () => {
         generateId: () => '_' + Math.random().toString(36).substr(2, 9)
     };
 
-    // ... [InvestorTypes and getRebalanceLimits remain identical to previous versions] ...
     const InvestorTypes = {
         "Compounder": { id: 1, name: "Long-Term Compounder", desc: "Maximizes long-term intrinsic value.", weights: { growth: 0.4, quality: 0.4, safety: 0.1, value: 0.1 }, pillars:['growth','quality'] },
         "Redeployer": { id: 2, name: "Capital Redeployer", desc: "Reallocates capital to best opportunities.", weights: { value: 0.4, momentum: 0.2, growth: 0.2, safety: 0.2 }, pillars:['value','growth'] },
@@ -49,21 +48,23 @@ document.addEventListener('DOMContentLoaded', () => {
         isProcessing: false,
         enqueue: (params, callback) => {
             API.queue.push({ params, callback });
-            UI.updateQueue(API.queue.length);
+            UI.updateQueue(API.queue.length, true);
             API.process();
         },
         process: async () => {
-            if (API.isProcessing || API.queue.length === 0) return;
+            if (API.isProcessing || API.queue.length === 0) {
+                UI.updateQueue(0, false);
+                return;
+            }
             API.isProcessing = true;
             const task = API.queue.shift();
-            UI.updateQueue(API.queue.length, true);
             try {
                 let data;
                 if(task.params.function === 'OVERVIEW' && Store.cache[task.params.symbol] && (Date.now() - Store.cache[task.params.symbol].ts < 86400000)) {
                     data = Store.cache[task.params.symbol].data;
                 } else {
                     data = await API.fetchData(task.params);
-                    if(task.params.function === 'OVERVIEW' && !data.Note && !data.Information) {
+                    if(task.params.function === 'OVERVIEW' && !data.Note && !data.Information && data.Symbol) {
                         Store.cache[task.params.symbol] = { data: data, ts: Date.now() };
                         Store.saveCache();
                     }
@@ -204,6 +205,100 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    const ProfileEngine = {
+        init: () => {
+            const activeProfile = Store.profile || { name: "Neutral Value", maxAlloc: 0.15, pillars: ['quality','value'] };
+            if (Store.profile) ProfileEngine.renderDashboard(Store.profile);
+            else ProfileEngine.renderQuiz();
+            
+            document.getElementById('submitQuizBtn').addEventListener('click', ProfileEngine.processQuiz);
+            document.getElementById('retakeQuizBtn').addEventListener('click', () => {
+                document.getElementById('quizView').classList.remove('hidden');
+                document.getElementById('profileDashboard').classList.add('hidden');
+                document.getElementById('retakeQuizBtn').classList.add('hidden');
+            });
+            document.getElementById('runHealthCheckBtn').addEventListener('click', ProfileEngine.runHealthCheck);
+            document.querySelectorAll('.goto-profile-btn').forEach(b => b.addEventListener('click', () => { document.querySelector('.nav-btn[data-tab="profile"]').click(); }));
+        },
+        renderQuiz: () => {
+            document.getElementById('quizView').classList.remove('hidden');
+            document.getElementById('profileDashboard').classList.add('hidden');
+            document.getElementById('retakeQuizBtn').classList.add('hidden');
+            const qs = [
+                { l: "1. Primary Goal?", o: [["growth","Multi-Generational Wealth"], ["income","Steady Passive Income"], ["safety","Capital Preservation"], ["trend","Beating the Market"]] },
+                { l: "2. Market Crash (-30%) Reaction?", o: [["buy","Buy Aggressively"], ["hold","Do Nothing"], ["check","Re-evaluate Thesis"], ["sell","Sell to Protect"]] },
+                { l: "3. Liquidity Needs?", o: [["none","Locked for 10+ Years"], ["low","Might need in 3-5 Years"], ["high","Need access < 1 Year"]] },
+                { l: "4. Management Style?", o: [["active","Daily/Weekly"], ["passive","Quarterly/Yearly"]] },
+                { l: "5. Metric Focus?", o: [["quality","ROE & Margins"], ["value","P/E & Free Cash Flow"], ["trend","Price Momentum"], ["safety","Debt & Assets"]] },
+                { l: "6. Concentration?", o: [["high","Top 5 stocks = 50%"], ["balanced","10-20 Stocks"], ["diversified","30+ Stocks"]] },
+                { l: "7. Volatility?", o: [["love","Opportunity to buy"], ["ignore","Noise"], ["hate","Stressful"]] },
+                { l: "8. Profit Taking?", o: [["never","Hold Forever"], ["valuation","Trim when expensive"], ["target","Sell at price target"]] },
+                { l: "9. Cash Position?", o: [["invested","Always fully invested"], ["tactical","Hold cash for dips"], ["buffer","Always keep 20% cash"]] },
+                { l: "10. Philosophy?", o: [["business","I own businesses"], ["ticker","I trade tickers"]] }
+            ];
+            let html = "";
+            qs.forEach((q, i) => html += `<div class="quiz-question"><label>${q.l}</label><select id="q${i}">${q.o.map(opt => `<option value="${opt[0]}">${opt[1]}</option>`).join('')}</select></div>`);
+            document.getElementById('quizQuestions').innerHTML = html;
+        },
+        processQuiz: () => {
+            const getVal = (i) => document.getElementById(`q${i}`).value;
+            let typeKey = "Compounder"; 
+            if (getVal(2) === 'high') typeKey = "LiquidityConstrained";
+            else if (getVal(0) === 'income') typeKey = "Income";
+            else if (getVal(0) === 'safety') typeKey = "RiskMinimizer";
+            else if (getVal(5) === 'high') typeKey = "Concentrator";
+            
+            Store.profile = { type: typeKey, timestamp: Date.now() };
+            Store.saveProfile();
+            ProfileEngine.renderDashboard(Store.profile);
+            UI.toast("Profile Generated");
+        },
+        renderDashboard: (p) => {
+            document.getElementById('quizView').classList.add('hidden');
+            document.getElementById('profileDashboard').classList.remove('hidden');
+            document.getElementById('retakeQuizBtn').classList.remove('hidden');
+            const type = InvestorTypes[Store.profile.type];
+            document.getElementById('profileTypeName').innerText = type.name;
+            document.getElementById('profileTypeDesc').innerText = type.desc;
+            const wContainer = document.getElementById('profileWeights');
+            wContainer.innerHTML = '';
+            for (const [key, val] of Object.entries(type.weights)) {
+                if(val > 0) wContainer.innerHTML += `<span class="weight-tag">${key.toUpperCase()}: ${(val*100).toFixed(0)}%</span>`;
+            }
+        },
+        runHealthCheck: () => {
+            const grid = document.getElementById('healthGrid');
+            grid.innerHTML = '';
+            let brokenCap = 0, totalCap = 0;
+            
+            if(Store.portfolio.length === 0) return grid.innerHTML = '<div class="empty-state">Portfolio Empty</div>';
+
+            Store.portfolio.forEach(stock => {
+                const val = (stock.currentPrice || stock.price) * stock.shares;
+                totalCap += val;
+                const cached = Store.cache[stock.symbol];
+                
+                if(cached) {
+                    const { vec, raw } = ScoringEngine.calculateVector(cached.data, stock.pillars);
+                    if(vec.thesis < 5) brokenCap += val;
+                    const card = document.createElement('div');
+                    card.className = 'health-card';
+                    card.innerHTML = `<div class="health-score-box"><span class="health-score-val" style="color:${vec.thesis>6?'var(--success)':'var(--danger)'}">${vec.thesis}/10</span><small>Thesis</small></div><div class="health-details"><h4>${stock.symbol}</h4><div class="data-grid-mini"><div class="mini-item"><span class="mini-label">Growth</span><span class="mini-val">${raw.revG.toFixed(1)}%</span></div><div class="mini-item"><span class="mini-label">ROE</span><span class="mini-val">${raw.roe.toFixed(1)}%</span></div><div class="mini-item"><span class="mini-label">D/E</span><span class="mini-val">${raw.debt.toFixed(2)}</span></div></div></div>`;
+                    grid.appendChild(card);
+                } else {
+                    grid.innerHTML += `<div class="health-card"><h4>${stock.symbol}</h4><small>Waiting for data... Click Update in Portfolio.</small></div>`;
+                }
+            });
+            
+            if(totalCap > 0) {
+                document.getElementById('sysBrokenCap').innerText = ((brokenCap/totalCap)*100).toFixed(1) + "%";
+                let grade = brokenCap/totalCap > 0.2 ? (brokenCap/totalCap > 0.4 ? "C" : "B") : "A";
+                document.getElementById('sysHealthGrade').innerText = grade;
+                document.getElementById('sysHealthGrade').className = `grade-badge grade-${grade}`;
+            }
+        }
+    };
+
     const App = {
         charts: { alloc: null, perf: null },
         
@@ -212,6 +307,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 App.initCharts();
                 UI.renderPortfolio();
                 App.setupEventListeners();
+                ProfileEngine.init();
+                document.getElementById('currencySwitch').checked = (Store.settings.currency === 'EUR');
+                document.getElementById('currLabel').innerText = Store.settings.currency === 'EUR' ? 'EUR' : 'USD';
                 if(Store.getApiKey()) { document.getElementById('apiStatusDot').style.background = 'var(--success)'; API.fetchExchangeRate(); }
                 console.log("App Initialized");
             } catch (e) { console.error(e); UI.toast("Init Failed", "error"); }
@@ -225,7 +323,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     btn.classList.add('active');
                     const tab = btn.getAttribute('data-tab');
                     document.getElementById(tab).classList.add('active');
-                    if(tab === 'exit' || tab === 'buy' || tab === 'firewall') App.runExitEngine(tab);
+                    if(tab === 'firewall') App.runFirewall('all');
+                    if(tab === 'profile') ProfileEngine.runHealthCheck();
                 });
             });
             document.getElementById('refreshBtn').addEventListener('click', () => {
@@ -235,73 +334,64 @@ document.addEventListener('DOMContentLoaded', () => {
                     App.updateSingleStock(idx, true);
                     API.enqueue({ function: 'OVERVIEW', symbol: s.symbol }, () => {
                         const activeTab = document.querySelector('.view.active').id;
-                        if(activeTab === 'firewall' || activeTab === 'buy' || activeTab === 'exit') App.runExitEngine(activeTab);
+                        if(activeTab === 'profile') ProfileEngine.runHealthCheck();
+                        if(activeTab === 'firewall') App.runFirewall();
                     });
                 });
             });
             
-            // --- NEW: ROBUST JSON IMPORT ---
-            document.getElementById('importFile').addEventListener('change', (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    try {
-                        const json = JSON.parse(event.target.result);
-                        // Handle format variations
-                        const newPortfolio = Array.isArray(json) ? json : (json.portfolio || []);
-                        Store.portfolio = newPortfolio;
-                        // Optional: Load profile if present
-                        if(json.profile) Store.profile = json.profile;
-                        
-                        Store.savePortfolio();
-                        Store.saveProfile();
-                        UI.renderPortfolio();
-                        UI.toast("Portfolio Restored Successfully");
-                    } catch (err) {
-                        console.error(err);
-                        UI.toast("Invalid JSON File", "error");
-                    }
-                };
-                reader.readAsText(file);
-                e.target.value = ''; // Reset input
-            });
-
-            // --- NEW: PDF GENERATOR ---
+            document.getElementById('currencySwitch').addEventListener('change', (e) => { Store.settings.currency = e.target.checked ? 'EUR' : 'USD'; Store.saveSettings(); document.getElementById('currLabel').innerText = Store.settings.currency === 'EUR' ? 'EUR' : 'USD'; UI.renderPortfolio(); });
             document.getElementById('exportPdfBtn').addEventListener('click', () => {
-                const tpl = document.getElementById('pdf-template');
+                const tpl = document.getElementById('pdf-template').cloneNode(true); // Use cloned template
+                tpl.style.display = 'block'; // Make visible in logic (not UI)
                 
-                // Populate Template
-                document.getElementById('pdfDate').innerText = new Date().toLocaleDateString();
-                document.getElementById('pdfProfile').innerHTML = Store.profile ? 
+                // 1. Header Date
+                tpl.querySelector('#pdfDate').innerText = new Date().toLocaleDateString();
+                
+                // 2. Profile
+                tpl.querySelector('#pdfProfile').innerHTML = Store.profile ? 
                     `<strong>${InvestorTypes[Store.profile.type].name}</strong><br>${InvestorTypes[Store.profile.type].desc}` : "No Profile Set";
                 
-                // Populate Tables
-                const pfBody = document.getElementById('pdfPortfolioBody');
+                // 3. Portfolio
+                const pfBody = tpl.querySelector('#pdfPortfolioBody');
                 pfBody.innerHTML = '';
                 Store.portfolio.forEach(s => {
-                    pfBody.innerHTML += `<tr><td>${s.symbol}</td><td>${s.shares}</td><td>${UI.fmtMoney((s.currentPrice||s.price)*s.shares)}</td><td>${s.conviction}</td></tr>`;
+                    pfBody.innerHTML += `<tr><td>${s.symbol}</td><td>${s.shares}</td><td>${UI.fmtMoney((s.currentPrice||s.price)*s.shares)}</td><td>${s.conviction}</td><td>${((((s.currentPrice||s.price)-s.price)/s.price)*100).toFixed(2)}%</td></tr>`;
                 });
 
-                const fwBody = document.getElementById('pdfFirewallBody');
+                // 4. Firewall Logic
+                const fwBody = tpl.querySelector('#pdfFirewallBody');
                 fwBody.innerHTML = '';
                 Store.portfolio.forEach(s => {
                     const cached = Store.cache[s.symbol];
                     if(cached) {
                         const scoreData = ScoringEngine.calculateVector(cached.data, s.pillars);
-                        fwBody.innerHTML += `<tr><td>${s.symbol}</td><td>${scoreData.vec.thesis}/10</td><td>${scoreData.vec.thesis>5?'Intact':'Broken'}</td></tr>`;
+                        const weight = ((s.currentPrice * s.shares) / Store.portfolio.reduce((acc,x)=>acc+(x.currentPrice*x.shares),0));
+                        const decision = ScoringEngine.calculateDecision(s, scoreData, weight, 0.15);
+                        fwBody.innerHTML += `<tr><td>${s.symbol}</td><td>${scoreData.vec.thesis}/10</td><td>${decision.action}</td><td>${decision.reason}</td></tr>`;
                     }
                 });
 
                 // Generate
-                const opt = { margin: 0.5, filename: 'EquitySense_Report.pdf', image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' } };
+                const opt = { margin: 0.5, filename: `EquitySense_Report_${new Date().toISOString().split('T')[0]}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' } };
                 html2pdf().set(opt).from(tpl).save();
             });
+            
+            // Firewall Filters
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    App.runFirewall(btn.getAttribute('data-filter'));
+                });
+            });
 
-            // Standard Listeners (Stock Modal, Export JSON, etc.) remain...
+            // Modal & Stock Actions
+            const modal = document.getElementById('stockModal');
             document.getElementById('addStockBtn').addEventListener('click', () => { 
                 document.getElementById('stockForm').reset(); 
                 document.getElementById('editIndex').value = ''; 
+                // Auto-Select Pillars based on Profile
                 if(Store.profile && Store.profile.type) {
                     const type = InvestorTypes[Store.profile.type];
                     if(type.pillars) type.pillars.forEach(p => { 
@@ -309,9 +399,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         if(cb) cb.checked = true;
                     });
                 }
-                document.getElementById('stockModal').classList.add('open'); 
+                modal.classList.add('open'); 
             });
-            document.querySelectorAll('.close-modal').forEach(b => b.addEventListener('click', () => document.getElementById('stockModal').classList.remove('open')));
+            document.querySelectorAll('.close-modal').forEach(b => b.addEventListener('click', () => modal.classList.remove('open')));
             document.getElementById('saveKeyBtn').addEventListener('click', () => { Store.setApiKey(document.getElementById('apiKeyInput').value); document.getElementById('apiStatusDot').style.background = 'var(--success)'; API.fetchExchangeRate(); UI.toast('Connected'); });
             
             document.getElementById('stockForm').addEventListener('submit', (e) => {
@@ -321,7 +411,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const stock = { symbol: document.getElementById('mSymbol').value.toUpperCase(), shares: parseFloat(document.getElementById('mShares').value), price: parseFloat(document.getElementById('mPrice').value), conviction: document.getElementById('mConviction').value, thesis: document.getElementById('mThesis').value, pillars: pillars, currentPrice: parseFloat(document.getElementById('mPrice').value) };
                 const idx = document.getElementById('editIndex').value;
                 if (idx !== '') { stock.id = Store.portfolio[idx].id; stock.currentPrice = Store.portfolio[idx].currentPrice; Store.portfolio[idx] = stock; } else { stock.id = Store.generateId(); Store.portfolio.push(stock); }
-                Store.savePortfolio(); UI.renderPortfolio(); document.getElementById('stockModal').classList.remove('open'); UI.toast('Saved');
+                Store.savePortfolio(); UI.renderPortfolio(); modal.classList.remove('open'); UI.toast('Saved');
             });
             document.getElementById('portfolioList').addEventListener('click', (e) => {
                 const btn = e.target.closest('.action-btn');
@@ -331,11 +421,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 else if(btn.classList.contains('delete-btn')) App.deleteStock(btn.getAttribute('data-id'));
                 else if(btn.classList.contains('refresh-btn')) App.updateSingleStock(idx);
             });
-            document.getElementById('exportBtn').addEventListener('click', () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify({ portfolio: Store.portfolio, profile: Store.profile })], {type: 'application/json'})); a.download = `portfolio_${Date.now()}.json`; a.click(); });
+            document.getElementById('exportBtn').addEventListener('click', () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify({ portfolio: Store.portfolio })], {type: 'application/json'})); a.download = `portfolio_${Date.now()}.json`; a.click(); });
+            const handleImp = (e, replace) => { const reader = new FileReader(); reader.onload = (ev) => { try { Store.portfolio = replace ? JSON.parse(ev.target.result).portfolio : [...Store.portfolio, ...JSON.parse(ev.target.result).portfolio]; Store.savePortfolio(); UI.renderPortfolio(); UI.toast("Import Successful"); } catch(err) { UI.toast("Import Failed", "error"); } }; if(e.target.files.length > 0) reader.readAsText(e.target.files[0]); };
+            document.getElementById('importMerge').onchange = (e) => handleImp(e, false); document.getElementById('importReplace').onchange = (e) => handleImp(e, true);
             
-            document.getElementById('runExitScanBtn').addEventListener('click', () => App.runExitEngine('exit'));
-            document.getElementById('runBuyScanBtn').addEventListener('click', () => App.runExitEngine('buy'));
-            document.getElementById('runAuditBtn').addEventListener('click', () => App.runExitEngine('firewall'));
+            document.getElementById('runAuditBtn').addEventListener('click', () => App.runFirewall());
         },
 
         updateSingleStock: (idx, isBulk = false) => {
@@ -352,9 +442,8 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         },
 
-        runExitEngine: (mode, filter = 'all') => {
-            const gridId = mode === 'buy' ? 'buyGrid' : (mode === 'firewall' ? 'firewallGrid' : 'exitGrid');
-            const grid = document.getElementById(gridId);
+        runFirewall: (filter = 'all') => {
+            const grid = document.getElementById('firewallGrid');
             grid.innerHTML = '';
             
             let count = 0;
@@ -369,12 +458,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     const decision = ScoringEngine.calculateDecision(stock, scoreData, weight, limit);
                     
-                    if (mode === 'exit' && (decision.action === 'HOLD' || decision.action === 'BUY' || decision.action === 'ADD' || decision.action === 'WAIT')) return;
-                    if (mode === 'buy' && (decision.action !== 'BUY' && decision.action !== 'ADD')) return;
-                    if (mode === 'firewall') {
-                        if(filter === 'actionable' && decision.action === 'HOLD') return;
-                        if(filter === 'warning' && (decision.action === 'BUY' || decision.action === 'ADD')) return;
-                    }
+                    if (filter === 'actionable' && decision.action === 'HOLD') return;
+                    if (filter === 'warning' && (decision.action === 'BUY' || decision.action === 'ADD' || decision.action === 'HOLD')) return;
                     
                     const card = document.createElement('div');
                     card.className = 'audit-card';
@@ -383,7 +468,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     count++;
                 }
             });
-            if(count === 0) grid.innerHTML = '<div class="empty-state">No signals found.</div>';
+            if(count === 0) grid.innerHTML = '<div class="empty-state">No active signals.</div>';
         },
 
         editStock: (idx) => {
@@ -414,7 +499,7 @@ document.addEventListener('DOMContentLoaded', () => {
             App.charts.alloc.data.labels = labels; App.charts.alloc.data.datasets[0].data = data; App.charts.alloc.data.datasets[0].backgroundColor = colors; App.charts.alloc.update();
             App.charts.perf.data.labels = labels;
             App.charts.perf.data.datasets[0].data = Store.portfolio.map(s => { const cost = parseFloat(s.price) * parseFloat(s.shares); const curr = (s.currentPrice ? parseFloat(s.currentPrice) : parseFloat(s.price)) * parseFloat(s.shares); return ((curr - cost) / cost) * 100; });
-            App.charts.perf.data.datasets[0].backgroundColor = App.charts.perf.data.datasets[0].data.map(v => v >= 0 ? '#22c55e' : '#ef4444');
+            App.charts.perf.data.datasets[0].backgroundColor = colors;
             App.charts.perf.update();
         }
     };
