@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
         settings: JSON.parse(localStorage.getItem('ep_settings')) || {},
         profile: JSON.parse(localStorage.getItem('ep_profile')) || null,
         cache: JSON.parse(localStorage.getItem('ep_cache')) || {},
+        
         getApiKey: () => sessionStorage.getItem('ep_api_key'),
         setApiKey: (key) => sessionStorage.setItem('ep_api_key', key),
         savePortfolio: () => localStorage.setItem('ep_portfolio', JSON.stringify(Store.portfolio)),
@@ -16,28 +17,28 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const InvestorTypes = {
-        "Compounder": { id: 1, name: "Long-Term Compounder", desc: "Maximizes long-term intrinsic value. Ignores short-term volatility.", weights: { growth: 0.4, quality: 0.4, safety: 0.1, value: 0.1 } },
-        "Redeployer": { id: 2, name: "Capital Redeployer", desc: "Continuously reallocates capital to the best opportunity.", weights: { value: 0.4, momentum: 0.2, growth: 0.2, safety: 0.2 } },
-        "CashConstrained": { id: 3, name: "Cash-Constrained", desc: "Grows capital with limited surplus. Prioritizes low downside.", weights: { safety: 0.5, value: 0.3, quality: 0.2, growth: 0.0 } },
-        "Income": { id: 4, name: "Income-Focused", desc: "Prioritizes stable cash flows and yield.", weights: { dividend: 0.5, safety: 0.3, quality: 0.2, growth: 0.0 } },
-        "RiskMinimizer": { id: 5, name: "Risk-Minimizer", desc: "Capital preservation is paramount. Low volatility.", weights: { safety: 0.6, quality: 0.3, value: 0.1, growth: 0.0 } },
-        "DrawdownSensitive": { id: 6, name: "Drawdown-Sensitive", desc: "Strict peak-to-trough loss limits.", weights: { safety: 0.5, momentum: 0.2, quality: 0.3, growth: 0.0 } },
-        "TimeHorizon": { id: 7, name: "Time-Horizon Optimizer", desc: "Maximizes capital for a specific future date.", weights: { growth: 0.5, quality: 0.3, value: 0.2, safety: 0.0 } },
-        "VolatilityAgnostic": { id: 8, name: "Volatility-Agnostic", desc: "CAGR above all else. Indifferent to swings.", weights: { growth: 0.6, momentum: 0.2, value: 0.2, safety: 0.0 } },
+        "Compounder": { id: 1, name: "Long-Term Compounder", desc: "Maximizes long-term intrinsic value.", weights: { growth: 0.4, quality: 0.4, safety: 0.1, value: 0.1 } },
+        "Redeployer": { id: 2, name: "Capital Redeployer", desc: "Reallocates capital to best opportunities.", weights: { value: 0.4, momentum: 0.2, growth: 0.2, safety: 0.2 } },
+        "CashConstrained": { id: 3, name: "Cash-Constrained", desc: "Grows capital with limited surplus.", weights: { safety: 0.5, value: 0.3, quality: 0.2, growth: 0.0 } },
+        "Income": { id: 4, name: "Income-Focused", desc: "Prioritizes stable cash flows.", weights: { dividend: 0.5, safety: 0.3, quality: 0.2, growth: 0.0 } },
+        "RiskMinimizer": { id: 5, name: "Risk-Minimizer", desc: "Capital preservation is paramount.", weights: { safety: 0.6, quality: 0.3, value: 0.1, growth: 0.0 } },
+        "DrawdownSensitive": { id: 6, name: "Drawdown-Sensitive", desc: "Strict loss limits.", weights: { safety: 0.5, momentum: 0.2, quality: 0.3, growth: 0.0 } },
+        "TimeHorizon": { id: 7, name: "Time-Horizon Optimizer", desc: "Maximizes capital for future date.", weights: { growth: 0.5, quality: 0.3, value: 0.2, safety: 0.0 } },
+        "VolatilityAgnostic": { id: 8, name: "Volatility-Agnostic", desc: "CAGR above all else.", weights: { growth: 0.6, momentum: 0.2, value: 0.2, safety: 0.0 } },
         "LiquidityConstrained": { id: 9, name: "Liquidity-Constrained", desc: "Needs near-term access to cash.", weights: { safety: 0.4, quality: 0.4, momentum: 0.2, growth: 0.0 } },
-        "Concentrator": { id: 10, name: "Conviction-Weighted", desc: "Outsized returns via few high-conviction bets.", weights: { quality: 0.5, growth: 0.3, value: 0.2, safety: 0.0 } },
+        "Concentrator": { id: 10, name: "Conviction-Weighted", desc: "Outsized returns via few bets.", weights: { quality: 0.5, growth: 0.3, value: 0.2, safety: 0.0 } },
         "Stabilizer": { id: 11, name: "Diversification-First", desc: "Reduces idiosyncratic risk.", weights: { safety: 0.4, quality: 0.4, value: 0.2, growth: 0.0 } },
-        "ValuationAnchored": { id: 12, name: "Valuation-Anchored", desc: "Only buys with clear Margin of Safety.", weights: { value: 0.7, quality: 0.2, safety: 0.1, growth: 0.0 } },
-        "Systematic": { id: 13, name: "Rule-Bound Systematic", desc: "Strict adherence to mechanical rules.", weights: { quality: 0.3, value: 0.3, safety: 0.3, growth: 0.1 } },
-        "CycleTimer": { id: 14, name: "Opportunistic Cycle-Timer", desc: "Exploits market cycles and regime shifts.", weights: { value: 0.4, momentum: 0.4, quality: 0.2, safety: 0.0 } },
-        "PreservationPlus": { id: 15, name: "Capital-Preservation-Plus", desc: "Beat inflation with minimal real risk.", weights: { safety: 0.7, quality: 0.2, dividend: 0.1, growth: 0.0 } }
+        "ValuationAnchored": { id: 12, name: "Valuation-Anchored", desc: "Only buys with Margin of Safety.", weights: { value: 0.7, quality: 0.2, safety: 0.1, growth: 0.0 } },
+        "Systematic": { id: 13, name: "Rule-Bound Systematic", desc: "Strict adherence to rules.", weights: { quality: 0.3, value: 0.3, safety: 0.3, growth: 0.1 } },
+        "CycleTimer": { id: 14, name: "Opportunistic Cycle-Timer", desc: "Exploits market cycles.", weights: { value: 0.4, momentum: 0.4, quality: 0.2, safety: 0.0 } },
+        "PreservationPlus": { id: 15, name: "Capital-Preservation-Plus", desc: "Beat inflation, low risk.", weights: { safety: 0.7, quality: 0.2, dividend: 0.1, growth: 0.0 } }
     };
 
     const getRebalanceLimits = (typeKey) => {
         if (!typeKey) return { max: 0.15 };
-        if (typeKey === "Concentrator" || typeKey === "Compounder") return { max: 0.25 }; 
-        if (typeKey === "RiskMinimizer" || typeKey === "Stabilizer") return { max: 0.10 }; 
-        return { max: 0.15 }; 
+        if (typeKey === "Concentrator" || typeKey === "Compounder") return { max: 0.25 };
+        if (typeKey === "RiskMinimizer" || typeKey === "Stabilizer") return { max: 0.10 };
+        return { max: 0.15 };
     };
 
     const API = {
@@ -56,7 +57,6 @@ document.addEventListener('DOMContentLoaded', () => {
             UI.updateQueue(API.queue.length, true);
             try {
                 let data;
-                // CACHING LOGIC FOR OVERVIEW
                 if(task.params.function === 'OVERVIEW' && Store.cache[task.params.symbol] && (Date.now() - Store.cache[task.params.symbol].ts < 86400000)) {
                     data = Store.cache[task.params.symbol].data;
                 } else {
@@ -122,23 +122,29 @@ document.addEventListener('DOMContentLoaded', () => {
             let totalInv = 0, totalVal = 0;
 
             Store.portfolio.forEach((stock, idx) => {
-                const current = stock.currentPrice || stock.price;
-                const val = current * stock.shares;
-                const cost = stock.price * stock.shares;
+                // Ensure numbers
+                const sShares = parseFloat(stock.shares);
+                const sPrice = parseFloat(stock.price);
+                const sCurr = stock.currentPrice ? parseFloat(stock.currentPrice) : sPrice;
+
+                const val = sCurr * sShares;
+                const cost = sPrice * sShares;
+                
                 let ret = 0;
-                if(stock.currentPrice && stock.currentPrice !== stock.price) {
+                if(sCurr && sCurr !== sPrice) {
                      ret = ((val - cost) / cost) * 100;
                 }
+                
                 totalInv += cost;
                 totalVal += val;
 
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td style="font-weight:700; font-family: var(--font-mono)">${stock.symbol}</td>
-                    <td>${stock.shares}</td>
-                    <td>${UI.fmtMoney(stock.price)}</td>
+                    <td>${sShares}</td>
+                    <td>${UI.fmtMoney(sPrice)}</td>
                     <td style="color:${stock.currentPrice ? '' : 'var(--text-secondary)'}">
-                        ${stock.currentPrice ? UI.fmtMoney(stock.currentPrice) : 'Pending...'}
+                        ${stock.currentPrice ? UI.fmtMoney(sCurr) : 'Pending...'}
                     </td>
                     <td>${UI.fmtMoney(val)}</td>
                     <td class="${ret > 0 ? 'positive' : (ret < 0 ? 'negative' : '')}">${UI.fmtPct(ret)}</td>
@@ -158,6 +164,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const retEl = document.getElementById('totalReturn');
             retEl.innerText = UI.fmtPct(ret);
             retEl.className = ret >= 0 ? 'positive' : 'negative';
+            
             App.updateCharts();
         }
     };
@@ -178,7 +185,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 ma200: p(data['200DayMovingAverage']),
                 price: p(data['50DayMovingAverage'])
             };
-            
             let score = 0;
             if (p(raw.revG) > 10) score += 15; else if (p(raw.revG) > 0) score += 10;
             if (p(raw.epsG) > 10) score += 15; else if (p(raw.epsG) > 0) score += 5;
@@ -186,7 +192,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (p(raw.margin) > 20) score += 15; else if (p(raw.margin) > 10) score += 10;
             if (raw.debt < 0.5) score += 20; else if (raw.debt < 1.0) score += 10;
             if (raw.price > raw.ma200) score += 20;
-
             return { score, raw };
         }
     };
@@ -213,7 +218,6 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('quizView').classList.remove('hidden');
             document.getElementById('profileDashboard').classList.add('hidden');
             document.getElementById('retakeQuizBtn').classList.add('hidden');
-            // 10 Detailed Questions
             const qs = [
                 { l: "1. Primary Goal?", o: [["growth","Multi-Generational Wealth"], ["income","Steady Passive Income"], ["safety","Capital Preservation"], ["trend","Beating the Market"]] },
                 { l: "2. Market Crash (-30%) Reaction?", o: [["buy","Buy Aggressively"], ["hold","Do Nothing"], ["check","Re-evaluate Thesis"], ["sell","Sell to Protect"]] },
@@ -226,7 +230,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 { l: "9. Cash Position?", o: [["invested","Always fully invested"], ["tactical","Hold cash for dips"], ["buffer","Always keep 20% cash"]] },
                 { l: "10. Philosophy?", o: [["business","I own businesses"], ["ticker","I trade tickers"]] }
             ];
-            
             let html = "";
             qs.forEach((q, i) => {
                 html += `<div class="quiz-question"><label>${q.l}</label><select id="q${i}">`;
@@ -236,19 +239,15 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('quizQuestions').innerHTML = html;
         },
         processQuiz: () => {
-            // Scoring Logic
             const scores = { Growth:0, Income:0, Safety:0, Value:0, Momentum:0 };
             const getVal = (i) => document.getElementById(`q${i}`).value;
-            
-            // Map answers to scores
             if(getVal(0)==='growth') scores.Growth+=3; if(getVal(0)==='income') scores.Income+=3; if(getVal(0)==='safety') scores.Safety+=3;
             if(getVal(1)==='buy') { scores.Growth+=1; scores.Value+=1; } if(getVal(1)==='sell') scores.Safety+=2;
             if(getVal(4)==='quality') scores.Growth+=1; if(getVal(4)==='value') scores.Value+=2; if(getVal(4)==='trend') scores.Momentum+=2;
             if(getVal(6)==='love') scores.Value+=1; if(getVal(6)==='hate') scores.Safety+=2;
             if(getVal(9)==='business') scores.Growth+=1; else scores.Momentum+=1;
 
-            // Determine Type
-            let typeKey = "Compounder"; // Default
+            let typeKey = "Compounder"; 
             if (getVal(2) === 'high') typeKey = "LiquidityConstrained";
             else if (scores.Safety >= 5) typeKey = "RiskMinimizer";
             else if (scores.Income >= 3) typeKey = "Income";
@@ -301,9 +300,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         init: () => {
             try {
+                // FIXED ORDER: Charts first, then Data
+                App.initCharts();
                 UI.renderPortfolio();
                 App.setupEventListeners();
-                App.initCharts();
                 ProfileEngine.init();
                 if(Store.getApiKey()) document.getElementById('apiStatusDot').style.background = 'var(--success)';
                 console.log("App Initialized");
@@ -347,7 +347,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 else if(btn.classList.contains('refresh-btn')) App.updateSingleStock(idx);
             });
 
-            // SCAN LOGIC
             const runScan = (mode) => {
                 if ((mode === 'sell' || mode === 'buy') && !Store.profile) {
                     document.getElementById(mode + 'Grid').innerHTML = '';
@@ -476,7 +475,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateCharts: () => {
             if(!App.charts.alloc) return;
             const labels = Store.portfolio.map(s => s.symbol);
-            const data = Store.portfolio.map(s => (s.currentPrice || s.price) * s.shares);
+            const data = Store.portfolio.map(s => (s.currentPrice ? parseFloat(s.currentPrice) : parseFloat(s.price)) * parseFloat(s.shares));
             const count = Store.portfolio.length;
             const colors = Array.from({length: count}, (_, i) => `hsl(${i * (360 / count)}, 65%, 55%)`);
 
@@ -486,7 +485,11 @@ document.addEventListener('DOMContentLoaded', () => {
             App.charts.alloc.update();
 
             App.charts.perf.data.labels = labels;
-            App.charts.perf.data.datasets[0].data = Store.portfolio.map(s => { const cost = s.price * s.shares; const val = (s.currentPrice || s.price) * s.shares; return ((val - cost) / cost) * 100; });
+            App.charts.perf.data.datasets[0].data = Store.portfolio.map(s => { 
+                const cost = parseFloat(s.price) * parseFloat(s.shares); 
+                const curr = (s.currentPrice ? parseFloat(s.currentPrice) : parseFloat(s.price)) * parseFloat(s.shares); 
+                return ((curr - cost) / cost) * 100; 
+            });
             App.charts.perf.data.datasets[0].backgroundColor = App.charts.perf.data.datasets[0].data.map(v => v >= 0 ? '#22c55e' : '#ef4444');
             App.charts.perf.update();
         }
