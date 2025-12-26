@@ -80,7 +80,7 @@
                             <i class="fa-solid fa-file-pdf"></i> Report
                         </button>
                         <button id="refreshBtn" class="btn-secondary">
-                            <i class="fa-solid fa-arrows-rotate"></i> Update All
+                            <i class="fa-solid fa-arrows-rotate"></i> Update Prices
                         </button>
                         <button id="addStockBtn" class="btn-primary">
                             <i class="fa-solid fa-plus"></i> Add Position
@@ -138,14 +138,14 @@
 
             <section id="profile" class="view">
                 <header class="top-bar">
-                    <h1>System Calibration & Health</h1>
+                    <h1>Health & Risk</h1>
                     <div class="actions">
-                        <button id="retakeQuizBtn" class="btn-outline">Calibrate Profile</button>
+                        <button id="runHealthCheckBtn" class="btn-primary"><i class="fa-solid fa-stethoscope"></i> Refresh Health</button>
                     </div>
                 </header>
 
                 <div class="metrics-grid">
-                    <div class="card metric-card health-indicator">
+                    <div class="card metric-card">
                         <span>System Health</span>
                         <h2 id="sysHealthGrade">--</h2>
                     </div>
@@ -179,14 +179,11 @@
                         </div>
                         <p id="profileTypeDesc" class="text-muted">System configured for moderate risk and long-term holding.</p>
                         <div class="weights-display" id="profileWeights"></div>
+                        <button id="retakeQuizBtn" class="btn-outline" style="margin-top:1rem">Recalibrate Profile</button>
                     </div>
                     
-                    <div class="card" style="margin-top: 1.5rem;">
-                        <h3>Behavioral Audit Trail</h3>
-                        <p class="text-muted" style="font-size: 0.9rem; margin-bottom: 1rem;">Recent decisions and override events.</p>
-                        <ul id="auditLogList" class="doc-list">
-                            <li>No actions recorded yet.</li>
-                        </ul>
+                    <div id="healthGrid" class="health-grid" style="margin-top:1.5rem">
+                        <div class="empty-state"><i class="fa-solid fa-user-doctor"></i><p>Click "Refresh Health" to run diagnostic.</p></div>
                     </div>
                 </div>
             </section>
@@ -197,26 +194,23 @@
                     <button id="runExitScanBtn" class="btn-danger"><i class="fa-solid fa-filter"></i> Run Decision Scan</button>
                 </header>
                 <div class="card note-card" style="border-left-color: var(--danger)">
-                    <p><i class="fa-solid fa-triangle-exclamation"></i> <strong>Philosophy:</strong> Suggestions are based on your profile limits, thesis integrity, and fundamental deterioration. Market trend is a risk modifier only.</p>
+                    <p><strong>Strict Logic:</strong> This tab ONLY shows stocks that have triggered a risk warning (Broken Thesis, Valuation Extreme, or Allocation Breach).</p>
                 </div>
-                
-                <div id="exitLocked" class="hidden empty-state">
-                    <i class="fa-solid fa-lock"></i>
-                    <p><strong>Progressive Disclosure</strong><br>Add at least 3 positions to unlock the Exit Engine.</p>
-                </div>
-
                 <div id="exitGrid" class="firewall-grid">
                     <div class="empty-state"><i class="fa-solid fa-list-ol"></i><p>Click "Run Decision Scan" to evaluate positions.</p></div>
                 </div>
             </section>
 
             <section id="buy" class="view">
-                <header class="top-bar"><h1>Buy Candidates</h1></header>
+                <header class="top-bar">
+                    <h1>Buy Candidates</h1>
+                    <button id="runBuyScanBtn" class="btn-success"><i class="fa-solid fa-rocket"></i> Scan Opportunities</button>
+                </header>
                 <div class="card note-card" style="border-left-color: var(--success)">
-                    <p><strong>Strategy:</strong> Identifies high-quality stocks (Quality > 80) that are currently underweight relative to your profile.</p>
+                    <p><strong>Strategy:</strong> Identifies stocks with High Quality scores that are currently safe to accumulate.</p>
                 </div>
                 <div id="buyGrid" class="firewall-grid">
-                    <div class="empty-state"><i class="fa-solid fa-cart-plus"></i><p>Run "Update All" to scan opportunities.</p></div>
+                    <div class="empty-state"><i class="fa-solid fa-cart-plus"></i><p>Click "Scan Opportunities" to find winners.</p></div>
                 </div>
             </section>
 
@@ -226,7 +220,7 @@
                     <button id="runAuditBtn" class="btn-primary"><i class="fa-solid fa-microscope"></i> Analyze Vectors</button>
                 </header>
                 <div class="card note-card">
-                    <p><strong>Diagnostic Layer:</strong> Breaks down each holding into 5 distinct dimensions. No single score; look for weakness in specific pillars.</p>
+                    <p><strong>Diagnostic Layer:</strong> Shows the raw 5-dimension score for every holding. Use this to understand WHY a stock is rated Hold or Sell.</p>
                 </div>
                 <div id="firewallGrid" class="firewall-grid">
                     <div class="empty-state"><i class="fa-solid fa-shield-halved"></i><p>Click "Analyze Vectors" to view dimensions.</p></div>
@@ -245,17 +239,12 @@
                         <ol class="doc-list">
                             <li><strong>API:</strong> Get a free key from Alpha Vantage. Connect in the sidebar.</li>
                             <li><strong>Add:</strong> Go to Portfolio -> Add Position. Select your "Thesis Pillars" (Why you bought it).</li>
-                            <li><strong>Update:</strong> Click "Update All". Wait for the queue (12s per stock).</li>
+                            <li><strong>Update:</strong> Click "Update Prices" in Portfolio. This fetches the latest data for all tabs.</li>
                         </ol>
                     </div>
                     <div class="card doc-block">
-                        <h2>2. Exit Strategy Engine</h2>
-                        <p>This tab unlocks after you hold 3+ stocks. It combines:</p>
-                        <ul>
-                            <li><strong>Thesis Check:</strong> Are your selected pillars intact?</li>
-                            <li><strong>Allocation:</strong> Is the position too big for your profile?</li>
-                            <li><strong>Market Context:</strong> Is the trend hostile? (Used only as a risk accelerant).</li>
-                        </ul>
+                        <h2>2. Why is "Exit" showing everything?</h2>
+                        <p>If you see errors or "Broken" statuses everywhere, click <strong>Update Prices</strong> in the Portfolio tab first. The Decision Engine needs fresh data (Growth, PE, Debt) to calculate scores. Without data, it assumes the worst (Score 0).</p>
                     </div>
                 </div>
             </section>
@@ -313,42 +302,6 @@
             </form>
         </div>
     </div>
-
-    <div id="exitReasonModal" class="modal-overlay">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Log Exit Decision</h3>
-                <button class="close-modal-exit"><i class="fa-solid fa-times"></i></button>
-            </div>
-            <form id="exitForm">
-                <input type="hidden" id="exitStockId">
-                <p class="text-muted" style="margin-bottom:1rem">Accountability Check: Why are you selling/trimming?</p>
-                <div class="group">
-                    <label>Primary Reason</label>
-                    <select id="exitReason" required>
-                        <option value="thesis_broken">Thesis Broken (Fundamental)</option>
-                        <option value="valuation">Overvaluation (Price)</option>
-                        <option value="concentration">Risk Management (Trim)</option>
-                        <option value="opportunity">Better Opportunity (Reallocate)</option>
-                        <option value="liquidity">Need Cash (Personal)</option>
-                        <option value="mistake">Original Thesis Was Wrong</option>
-                    </select>
-                </div>
-                <div class="group">
-                    <label>Action Taken</label>
-                    <select id="exitActionType">
-                        <option value="trim">Partial Trim</option>
-                        <option value="exit">Full Exit</option>
-                    </select>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn-secondary close-modal-exit">Cancel</button>
-                    <button type="submit" class="btn-danger">Confirm Exit</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
     <div id="toastContainer"></div>
 </body>
 </html>
