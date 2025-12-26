@@ -68,7 +68,7 @@
                     <h1>Portfolio Dashboard</h1>
                     <div class="actions">
                         <button id="refreshBtn" class="btn-secondary">
-                            <i class="fa-solid fa-arrows-rotate"></i> Update Prices
+                            <i class="fa-solid fa-arrows-rotate"></i> Update All Prices
                         </button>
                         <button id="addStockBtn" class="btn-primary">
                             <i class="fa-solid fa-plus"></i> Add Position
@@ -77,19 +77,32 @@
                 </header>
 
                 <div class="metrics-grid">
-                    <div class="card metric-card"><span>Total Value</span><h2 id="totalValue">$0.00</h2></div>
-                    <div class="card metric-card"><span>Total Invested</span><h2 id="totalInvested">$0.00</h2></div>
-                    <div class="card metric-card"><span>Total Return</span><h2 id="totalReturn">0.00%</h2></div>
+                    <div class="card metric-card">
+                        <span>Total Value</span>
+                        <h2 id="totalValue">$0.00</h2>
+                    </div>
+                    <div class="card metric-card">
+                        <span>Total Invested</span>
+                        <h2 id="totalInvested">$0.00</h2>
+                    </div>
+                    <div class="card metric-card">
+                        <span>Total Return</span>
+                        <h2 id="totalReturn">0.00%</h2>
+                    </div>
                 </div>
 
                 <div class="charts-row">
                     <div class="chart-container">
                         <h3>Allocation by Value</h3>
-                        <div class="chart-wrapper"><canvas id="allocationChart"></canvas></div>
+                        <div class="chart-wrapper">
+                            <canvas id="allocationChart"></canvas>
+                        </div>
                     </div>
                     <div class="chart-container">
                         <h3>Performance vs Cost</h3>
-                        <div class="chart-wrapper"><canvas id="performanceChart"></canvas></div>
+                        <div class="chart-wrapper">
+                            <canvas id="performanceChart"></canvas>
+                        </div>
                     </div>
                 </div>
 
@@ -106,7 +119,14 @@
                         <table class="data-table">
                             <thead>
                                 <tr>
-                                    <th>Ticker</th><th>Shares</th><th>Avg Cost</th><th>Current Price</th><th>Value</th><th>Return</th><th>Conviction</th><th>Actions</th>
+                                    <th>Ticker</th>
+                                    <th>Shares</th>
+                                    <th>Avg Cost</th>
+                                    <th>Current Price</th>
+                                    <th>Value</th>
+                                    <th>Return</th>
+                                    <th>Conviction</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="portfolioList"></tbody>
@@ -201,47 +221,33 @@
             <section id="docs" class="view">
                 <header class="top-bar"><h1>Documentation</h1></header>
                 <div class="docs-container">
-                    <div class="card doc-block">
-                        <h2>🚀 Getting Started</h2>
-                        <ol class="doc-list">
-                            <li><strong>Get an API Key:</strong> Visit <a href="https://www.alphavantage.co/support/#api-key" target="_blank" style="color:var(--accent)">Alpha Vantage</a> to get a free key.</li>
-                            <li><strong>Connect:</strong> Paste the key into the input box on the bottom left sidebar and click "Connect".</li>
-                            <li><strong>Add Stocks:</strong> Go to the Portfolio tab and click "Add Position". Enter the ticker (e.g., AAPL), your average price, and share count.</li>
-                        </ol>
-                    </div>
-
-                    <div class="card doc-block">
-                        <h2>📊 Portfolio Management</h2>
+                    <div class="card doc-block disclaimer">
+                        <h3 style="color:var(--warning)"><i class="fa-solid fa-triangle-exclamation"></i> Disclaimer</h3>
+                        <p>This application is for <strong>informational and educational purposes only</strong>. It does not constitute financial advice, investment recommendations, or an offer to buy/sell any securities.</p>
                         <ul>
-                            <li><strong>Export:</strong> Downloads a `.json` file of your current portfolio and settings. Use this to backup your data.</li>
-                            <li><strong>Import (Merge):</strong> Adds stocks from a JSON file to your existing list. useful if combining lists.</li>
-                            <li><strong>Import (Replace):</strong> Wipes your current list and replaces it with the file data.</li>
-                            <li><strong>Update Prices:</strong> Click the "Update Prices" button in the Portfolio header. Note: Free API keys allow 5 calls per minute. The app automatically queues requests to prevent errors.</li>
+                            <li><strong>No Warranty:</strong> Calculations are based on third-party data (Alpha Vantage) which may be delayed or inaccurate.</li>
+                            <li><strong>Risk Warning:</strong> Investing involves risk, including the loss of principal. Past performance is no guarantee of future results.</li>
+                            <li><strong>User Responsibility:</strong> All investment decisions are solely the responsibility of the user. Consult a qualified financial advisor before making decisions.</li>
                         </ul>
                     </div>
 
                     <div class="card doc-block">
-                        <h2>🧠 User Classification (Profile)</h2>
-                        <p>Go to the "Profile & Health" tab to take the diagnostic quiz. This classifies you into one of 15 investor types (e.g., <em>Risk Minimizer</em>, <em>Long-Term Compounder</em>).</p>
-                        <p><strong>Why this matters:</strong> Your profile determines the "Overweight" threshold. For example, a <em>Concentrator</em> is allowed 25% in one stock, while a <em>Diversifier</em> is warned at 10%.</p>
+                        <h2>🚀 Getting Started</h2>
+                        <ol class="doc-list">
+                            <li><strong>Get an API Key:</strong> Visit <a href="https://www.alphavantage.co/support/#api-key" target="_blank" style="color:var(--accent)">Alpha Vantage</a> to get a free key.</li>
+                            <li><strong>Connect:</strong> Paste the key into the sidebar and click "Connect".</li>
+                            <li><strong>Add Stocks:</strong> Go to Portfolio > Add Position. Enter ticker, price, shares.</li>
+                        </ol>
                     </div>
 
                     <div class="card doc-block">
-                        <h2>🛡️ Decision Engine</h2>
-                        <div class="doc-grid">
-                            <div>
-                                <h4><i class="fa-solid fa-cart-plus" style="color:var(--success)"></i> Buy Now?</h4>
-                                <p>Scans for stocks with <strong>Scores > 80</strong> that are currently <strong>Underweight</strong> in your portfolio based on your profile limits.</p>
-                            </div>
-                            <div>
-                                <h4><i class="fa-solid fa-triangle-exclamation" style="color:var(--danger)"></i> Sell Now?</h4>
-                                <p>Scans for stocks with <strong>Scores < 60</strong> (deteriorating fundamentals) OR stocks that are excellent but <strong>Overweight</strong> (need trimming).</p>
-                            </div>
-                            <div>
-                                <h4><i class="fa-solid fa-fire-extinguisher" style="color:var(--accent)"></i> Firewall</h4>
-                                <p>The master view. Shows the fundamental health score (0-100) for every holding, regardless of action needed.</p>
-                            </div>
-                        </div>
+                        <h2>🧠 Features Explained</h2>
+                        <ul>
+                            <li><strong>Portfolio:</strong> Real-time tracking. Click the <i class="fa-solid fa-rotate"></i> icon to update individual stock prices.</li>
+                            <li><strong>Profile:</strong> Determines your "Investor DNA" to set risk limits.</li>
+                            <li><strong>Buy/Sell Now:</strong> Suggests actions based on fundamental health AND your profile's allocation limits.</li>
+                            <li><strong>Firewall:</strong> The master diagnostic tool. Scores every holding 0-100 based on Growth, Profitability, Safety, and Trend.</li>
+                        </ul>
                     </div>
                 </div>
             </section>
@@ -252,19 +258,19 @@
                     <div class="about-header">
                         <div class="about-avatar"><i class="fa-solid fa-user-astronaut"></i></div>
                         <div>
-                            <h2>Muthiah S</h2>
-                            <p class="text-muted">Developer</p>
+                            <h2>XXXX</h2>
+                            <p class="text-muted">Lead Developer & Investor</p>
                         </div>
                     </div>
                     <hr style="border-color:var(--border); margin: 1rem 0;">
                     <div class="about-details">
-                        <p>This application was built to solve the problem of emotional investing. By forcing a rules-based "Firewall" between market noise and your buy/sell decisions, EquityPulse aims to compound capital rationally over decades.</p>
+                        <p>Built to solve the problem of emotional investing. EquitySense acts as a rational "Firewall" between market noise and your capital.</p>
                         <br>
                         <div class="contact-box">
                             <i class="fa-solid fa-envelope"></i>
                             <div>
                                 <small>Feedback & Support</small>
-                                <strong>thinkingtechie2020@gmail.com</strong>
+                                <strong>yyy@gmail.com</strong>
                             </div>
                         </div>
                     </div>

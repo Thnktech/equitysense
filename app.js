@@ -1,14 +1,19 @@
 document.addEventListener('DOMContentLoaded', () => {
     console.log("System initializing...");
 
+    // --- STATE MANAGEMENT ---
     const Store = {
         portfolio: JSON.parse(localStorage.getItem('ep_portfolio')) || [],
         settings: JSON.parse(localStorage.getItem('ep_settings')) || {},
         profile: JSON.parse(localStorage.getItem('ep_profile')) || null,
+        // CENTRALIZED CACHE
+        cache: JSON.parse(localStorage.getItem('ep_cache')) || {},
+        
         getApiKey: () => sessionStorage.getItem('ep_api_key'),
         setApiKey: (key) => sessionStorage.setItem('ep_api_key', key),
         savePortfolio: () => localStorage.setItem('ep_portfolio', JSON.stringify(Store.portfolio)),
         saveProfile: () => localStorage.setItem('ep_profile', JSON.stringify(Store.profile)),
+        saveCache: () => localStorage.setItem('ep_cache', JSON.stringify(Store.cache)),
         generateId: () => '_' + Math.random().toString(36).substr(2, 9)
     };
 
@@ -52,7 +57,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const task = API.queue.shift();
             UI.updateQueue(API.queue.length, true);
             try {
-                const data = await API.fetchData(task.params);
+                // Check Cache for OVERVIEW data
+                let data;
+                if(task.params.function === 'OVERVIEW' && Store.cache[task.params.symbol] && (Date.now() - Store.cache[task.params.symbol].ts < 86400000)) {
+                    data = Store.cache[task.params.symbol].data;
+                } else {
+                    data = await API.fetchData(task.params);
+                    // Cache if it's Overview
+                    if(task.params.function === 'OVERVIEW') {
+                        Store.cache[task.params.symbol] = { data: data, ts: Date.now() };
+                        Store.saveCache();
+                    }
+                }
                 task.callback(data);
             } catch (err) {
                 if(task.errorCallback) task.errorCallback(err);
@@ -131,8 +147,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td class="${ret > 0 ? 'positive' : (ret < 0 ? 'negative' : '')}">${UI.fmtPct(ret)}</td>
                     <td>${stock.conviction}</td>
                     <td>
-                        <button class="btn-icon action-btn edit-btn" data-index="${idx}"><i class="fa-solid fa-pen"></i></button>
-                        <button class="btn-icon action-btn delete-btn" data-id="${stock.id}" style="color:var(--danger)"><i class="fa-solid fa-trash"></i></button>
+                        <button class="btn-icon action-btn refresh-btn" data-index="${idx}" title="Update Price"><i class="fa-solid fa-rotate"></i></button>
+                        <button class="btn-icon action-btn edit-btn" data-index="${idx}" title="Edit"><i class="fa-solid fa-pen"></i></button>
+                        <button class="btn-icon action-btn delete-btn" data-id="${stock.id}" style="color:var(--danger)" title="Delete"><i class="fa-solid fa-trash"></i></button>
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -285,10 +302,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 UI.toast(`Queuing ${Store.portfolio.length} price updates...`);
                 document.getElementById('lastUpdated').innerText = `Updating...`;
                 Store.portfolio.forEach((s, idx) => {
-                    API.enqueue({ function: 'GLOBAL_QUOTE', symbol: s.symbol }, (data) => {
-                        const price = parseFloat(data['Global Quote']['05. price']);
-                        if (price) { Store.portfolio[idx].currentPrice = price; Store.savePortfolio(); UI.renderPortfolio(); document.getElementById('lastUpdated').innerText = `Prices: ${new Date().toLocaleTimeString()}`; }
-                    });
+                    App.updateSingleStock(idx, true); // True = part of bulk update
                 });
             });
             const modal = document.getElementById('stockModal');
@@ -306,8 +320,10 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('portfolioList').addEventListener('click', (e) => {
                 const btn = e.target.closest('.action-btn');
                 if(!btn) return;
-                if(btn.classList.contains('edit-btn')) App.editStock(btn.getAttribute('data-index'));
+                const idx = btn.getAttribute('data-index');
+                if(btn.classList.contains('edit-btn')) App.editStock(idx);
                 else if(btn.classList.contains('delete-btn')) App.deleteStock(btn.getAttribute('data-id'));
+                else if(btn.classList.contains('refresh-btn')) App.updateSingleStock(idx); // NEW SINGLE UPDATE
             });
 
             // SCAN LOGIC
@@ -346,6 +362,20 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('exportBtn').addEventListener('click', () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify({ portfolio: Store.portfolio })], {type: 'application/json'})); a.download = `portfolio_${Date.now()}.json`; a.click(); });
             const handleImp = (e, replace) => { const reader = new FileReader(); reader.onload = (ev) => { try { Store.portfolio = replace ? JSON.parse(ev.target.result).portfolio : [...Store.portfolio, ...JSON.parse(ev.target.result).portfolio]; Store.savePortfolio(); UI.renderPortfolio(); UI.toast("Import Successful"); } catch(err) { UI.toast("Import Failed", "error"); } }; if(e.target.files.length > 0) reader.readAsText(e.target.files[0]); };
             document.getElementById('importMerge').onchange = (e) => handleImp(e, false); document.getElementById('importReplace').onchange = (e) => handleImp(e, true);
+        },
+
+        updateSingleStock: (idx, isBulk = false) => {
+            const stock = Store.portfolio[idx];
+            if(!isBulk) UI.toast(`Updating ${stock.symbol}...`);
+            API.enqueue({ function: 'GLOBAL_QUOTE', symbol: stock.symbol }, (data) => {
+                const price = parseFloat(data['Global Quote']['05. price']);
+                if (price) { 
+                    Store.portfolio[idx].currentPrice = price; 
+                    Store.savePortfolio(); 
+                    UI.renderPortfolio(); 
+                    if(!isBulk) document.getElementById('lastUpdated').innerText = `Updated ${stock.symbol} at ${new Date().toLocaleTimeString()}`;
+                }
+            });
         },
 
         renderScanResults: (mode) => {
