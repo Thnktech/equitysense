@@ -48,14 +48,16 @@ document.addEventListener('DOMContentLoaded', () => {
         isProcessing: false,
         enqueue: (params, callback) => {
             API.queue.push({ params, callback });
-            UI.updateQueue(API.queue.length);
+            UI.updateQueue(API.queue.length, true);
             API.process();
         },
         process: async () => {
-            if (API.isProcessing || API.queue.length === 0) return;
+            if (API.isProcessing || API.queue.length === 0) {
+                UI.updateQueue(0, false);
+                return;
+            }
             API.isProcessing = true;
             const task = API.queue.shift();
-            UI.updateQueue(API.queue.length, true);
             try {
                 let data;
                 if(task.params.function === 'OVERVIEW' && Store.cache[task.params.symbol] && (Date.now() - Store.cache[task.params.symbol].ts < 86400000)) {
@@ -69,8 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 task.callback(data);
             } catch (err) { console.error(err); UI.toast("API Error", "error"); }
-            
-            let countdown = 150; // Increased to 15s to be safe
+            let countdown = 150; 
             const timer = setInterval(() => {
                 countdown--;
                 UI.updateProgress((150 - countdown) / 150 * 100);
@@ -84,7 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         fetchData: async (params) => {
             const key = Store.getApiKey();
-            if (!key) throw new Error("Missing Key");
+            if (!key) throw new Error("Missing API Key");
             const url = `${API.baseUrl}?` + new URLSearchParams({ ...params, apikey: key });
             const res = await fetch(url);
             return await res.json();
@@ -147,11 +148,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (val === "None" || val === "-" || val === "0" || val === 0 || val === undefined) return null;
             return parseFloat(val);
         },
-        calculateVector: (data, pillars) => {
+        calculateVector: (data, stockPillars) => {
             const p = ScoringEngine.parse;
             const vec = { quality: 0, growth: 0, safety: 0, valuation: 0, trend: 0, thesis: 0, hasData: false };
             
-            // Check if valid data exists
             if(!data || !data.Symbol) return vec;
             vec.hasData = true;
 
@@ -169,18 +169,26 @@ document.addEventListener('DOMContentLoaded', () => {
             if (pe > 0 && pe < 25) vec.valuation = 10; else if (pe < 40) vec.valuation = 5;
             if (price > ma200) vec.trend = 1; else vec.trend = -1;
 
+            // SMART PILLAR CALIBRATION
+            // If stock has no pillars, use Profile pillars. If no profile, default to 'Quality'
+            let activePillars = stockPillars;
+            if(!activePillars || activePillars.length === 0) {
+                if(Store.profile && Store.profile.type) {
+                    activePillars = InvestorTypes[Store.profile.type].pillars;
+                } else {
+                    activePillars = ['quality', 'value']; // Fallback
+                }
+            }
+
             let matches = 0;
-            // Fuzzy match pillar names
-            if (pillars.includes('growth') && vec.growth > 5) matches++;
-            if (pillars.includes('quality') && vec.quality > 5) matches++;
-            if (pillars.includes('safety') && vec.safety > 6) matches++;
-            if (pillars.includes('value') && vec.valuation > 5) matches++;
+            if (activePillars.includes('growth') && vec.growth > 5) matches++;
+            if (activePillars.includes('quality') && vec.quality > 5) matches++;
+            if (activePillars.includes('safety') && vec.safety > 6) matches++;
+            if (activePillars.includes('value') && vec.valuation > 5) matches++;
             
-            // Allow "No Pillar" stocks to not fail immediately
-            const pCount = pillars.length || 1;
-            vec.thesis = Math.round((matches / pCount) * 10);
+            vec.thesis = Math.max(2, Math.round((matches / (activePillars.length || 1)) * 10)); 
             
-            return { vec, raw: { roe, revG, debt, pe, price, ma200 } };
+            return { vec, raw: { roe, revG, debt, pe, price, ma200 }, usedPillars: activePillars };
         },
         calculateDecision: (stock, scoreData, weight, limit) => {
             if (!scoreData.vec.hasData) return { action: "WAIT", reason: "Data Pending...", css: "bg-pending" };
@@ -272,7 +280,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const cached = Store.cache[stock.symbol];
                 
                 if(cached) {
-                    const { vec, raw } = ScoringEngine.calculateVector(cached.data, stock.pillars || Store.profile?.pillars || []);
+                    const { vec, raw } = ScoringEngine.calculateVector(cached.data, stock.pillars);
                     if(vec.thesis < 5) brokenCap += val;
                     const card = document.createElement('div');
                     card.className = 'health-card';
@@ -323,6 +331,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('refreshBtn').addEventListener('click', () => {
                 if(Store.portfolio.length === 0) return UI.toast("No stocks to update", "error");
                 UI.toast(`Queuing updates...`);
+                document.getElementById('lastUpdated').innerText = `Updating...`;
                 Store.portfolio.forEach((s, idx) => {
                     App.updateSingleStock(idx, true);
                     API.enqueue({ function: 'OVERVIEW', symbol: s.symbol }, () => {
@@ -451,9 +460,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = Store.portfolio.map(s => (s.currentPrice ? parseFloat(s.currentPrice) : parseFloat(s.price)) * parseFloat(s.shares));
             const count = Store.portfolio.length;
             const colors = Array.from({length: count}, (_, i) => `hsl(${i * (360 / count)}, 65%, 55%)`);
-            App.charts.alloc.data.labels = labels; App.charts.alloc.data.datasets[0].data = data; App.charts.alloc.data.datasets[0].backgroundColor = colors; App.charts.alloc.update();
+
+            App.charts.alloc.data.labels = labels;
+            App.charts.alloc.data.datasets[0].data = data;
+            App.charts.alloc.data.datasets[0].backgroundColor = colors;
+            App.charts.alloc.update();
+
             App.charts.perf.data.labels = labels;
-            App.charts.perf.data.datasets[0].data = Store.portfolio.map(s => { const cost = parseFloat(s.price) * parseFloat(s.shares); const curr = (s.currentPrice ? parseFloat(s.currentPrice) : parseFloat(s.price)) * parseFloat(s.shares); return ((curr - cost) / cost) * 100; });
+            App.charts.perf.data.datasets[0].data = Store.portfolio.map(s => { 
+                const cost = parseFloat(s.price) * parseFloat(s.shares); 
+                const curr = (s.currentPrice ? parseFloat(s.currentPrice) : parseFloat(s.price)) * parseFloat(s.shares); 
+                return ((curr - cost) / cost) * 100; 
+            });
             App.charts.perf.data.datasets[0].backgroundColor = App.charts.perf.data.datasets[0].data.map(v => v >= 0 ? '#22c55e' : '#ef4444');
             App.charts.perf.update();
         }

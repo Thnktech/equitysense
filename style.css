@@ -76,7 +76,7 @@ input:checked + .slider:before { transform: translateX(18px); }
 .modal-overlay.open { display: flex; }
 .modal-content { background: var(--card-bg); border: 1px solid var(--border); width: 100%; max-width: 500px; padding: 2rem; border-radius: 12px; }
 .modal-header { display: flex; justify-content: space-between; margin-bottom: 1.5rem; }
-.close-modal { background: none; border: none; color: var(--text-secondary); font-size: 1.2rem; cursor: pointer; }
+.close-modal, .close-modal-exit { background: none; border: none; color: var(--text-secondary); font-size: 1.2rem; cursor: pointer; }
 .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 1.5rem; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
 .group { margin-bottom: 1rem; }
@@ -93,9 +93,8 @@ input:checked + .slider:before { transform: translateX(18px); }
 .weights-display { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 1rem; }
 .weight-tag { padding: 4px 10px; background: var(--bg-main); border: 1px solid var(--border); border-radius: 20px; font-size: 0.75rem; color: var(--text-secondary); }
 .health-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; margin-top: 2rem; }
-.health-grid { display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem; }
-/* Improved Health Card Grid */
-.health-card { display: grid; grid-template-columns: 1fr 4fr; gap: 1.5rem; background: var(--card-bg); border: 1px solid var(--border); padding: 1.5rem; border-radius: 8px; align-items: center; }
+.health-grid { display: flex; flex-direction: column; gap: 1rem; }
+.health-card { display: grid; grid-template-columns: 80px 1fr; gap: 1.5rem; background: var(--card-bg); border: 1px solid var(--border); padding: 1.5rem; border-radius: 8px; align-items: center; }
 .health-score-box { text-align: center; display: flex; flex-direction: column; justify-content: center; }
 .health-score-val { font-size: 2rem; font-weight: 800; display: block; line-height: 1; margin-bottom: 5px; }
 .health-details h4 { display: flex; align-items: center; gap: 10px; margin-bottom: 0.8rem; font-size: 1.2rem; }
@@ -106,7 +105,9 @@ input:checked + .slider:before { transform: translateX(18px); }
 .health-status.status-watch { background: rgba(245, 158, 11, 0.2); color: var(--warning); }
 .health-status.status-reduce { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
 .health-status.status-exit { background: #ef4444; color: white; }
-.health-status.status-pending { background: #64748b; color: white; } /* Pending Gray */
+.health-status.status-buy-agg { background: var(--success); color: #000; }
+.health-status.status-buy-small { background: var(--accent); color: #000; }
+.health-status.status-overweight { background: #d946ef; color: white; } 
 
 /* UTILITY COLORS */
 .bg-success { background-color: var(--success) !important; color: #000 !important; }

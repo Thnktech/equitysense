@@ -234,17 +234,34 @@
                         <h3 style="color:var(--warning)">Disclaimer</h3>
                         <p>This tool is for educational purposes only. It uses algorithmic rules based on user inputs. <strong>Not financial advice.</strong></p>
                     </div>
+                    
                     <div class="card doc-block">
-                        <h2>1. How to Start</h2>
+                        <h2>1. Scoring Logic Explained</h2>
+                        <p>How the 0-10 Thesis Score is calculated:</p>
+                        <table class="data-table" style="margin-top:10px">
+                            <thead><tr><th>Metric</th><th>Condition</th><th>Points</th></tr></thead>
+                            <tbody>
+                                <tr><td><strong>Growth</strong></td><td>Rev > 15% or EPS > 15%</td><td>+5</td></tr>
+                                <tr><td></td><td>Rev > 0% or EPS > 0%</td><td>+2</td></tr>
+                                <tr><td><strong>Quality</strong></td><td>ROE > 20%</td><td>+5</td></tr>
+                                <tr><td></td><td>ROE > 10%</td><td>+3</td></tr>
+                                <tr><td><strong>Safety</strong></td><td>Debt/Eq < 0.5</td><td>+6</td></tr>
+                                <tr><td></td><td>Debt/Eq < 1.0</td><td>+3</td></tr>
+                                <tr><td><strong>Value</strong></td><td>P/E < 15</td><td>+10</td></tr>
+                                <tr><td></td><td>P/E < 25</td><td>+7</td></tr>
+                            </tbody>
+                        </table>
+                        <br>
+                        <p><strong>Thesis Calculation:</strong> We check if the stock's metrics match your specific <strong>Pillars</strong> (Growth, Safety, etc.). If you selected "Growth" but revenue is shrinking, the Thesis Score drops.</p>
+                    </div>
+
+                    <div class="card doc-block">
+                        <h2>2. How to Start</h2>
                         <ol class="doc-list">
                             <li><strong>API:</strong> Get a free key from Alpha Vantage. Connect in the sidebar.</li>
-                            <li><strong>Add:</strong> Go to Portfolio -> Add Position. Select your "Thesis Pillars" (Why you bought it).</li>
-                            <li><strong>Update:</strong> Click "Update Prices" in Portfolio. This fetches the latest data for all tabs.</li>
+                            <li><strong>Profile:</strong> Take the Quiz. This sets the default pillars for your stocks.</li>
+                            <li><strong>Update:</strong> Click "Update All". Wait for the queue (12s per stock).</li>
                         </ol>
-                    </div>
-                    <div class="card doc-block">
-                        <h2>2. Data Handling & Zeros</h2>
-                        <p>If metrics show "0%" or scores are low, the API likely returned incomplete data due to rate limits (5 calls/min). Please wait a minute and click "Refresh" on the specific stock.</p>
                     </div>
                 </div>
             </section>
