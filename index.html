@@ -56,7 +56,7 @@
             </div>
         </aside>
 
-        <main class="main-content" id="reportContent">
+        <main class="main-content">
             
             <section id="portfolio" class="view active">
                 <header class="top-bar">
@@ -142,7 +142,7 @@
                     <div class="card quiz-container">
                         <div class="quiz-header">
                             <h2><i class="fa-solid fa-dna"></i> Investor DNA Analysis</h2>
-                            <p class="text-muted">This assessment calibrates the decision engine to your personal psychology. It determines how the system reacts to drawdowns and allocation risks.</p>
+                            <p class="text-muted">This assessment calibrates the decision engine to your personal psychology.</p>
                         </div>
                         <div id="quizQuestions"></div>
                         <button id="submitQuizBtn" class="btn-primary full-width" style="margin-top:1.5rem; padding: 1rem;">Generate Comprehensive Profile</button>
@@ -209,48 +209,87 @@
                 </div>
             </section>
 
-            <section id="docs" class="view">
+			<section id="docs" class="view">
                 <header class="top-bar"><h1>User Manual</h1></header>
                 <div class="docs-container">
                     <div class="card doc-block disclaimer">
-                        <h3 style="color:var(--warning)">Legal Disclaimer</h3>
-                        <p>EquitySense is an educational tool for portfolio tracking and behavioral analysis. <strong>It does not provide financial advice.</strong></p>
+                        <h3 style="color:var(--warning)"><i class="fa-solid fa-triangle-exclamation"></i> Legal Disclaimer</h3>
+                        <p><strong>EquitySense</strong> is a personal analysis tool designed for educational purposes only. It uses mathematical formulas to organize publicly available data.</p>
+                        <ul class="doc-list" style="margin-top:10px;">
+                            <li><strong>Not Financial Advice:</strong> This application does not provide investment recommendations.</li>
+                            <li><strong>Data Reliability:</strong> Market data is fetched from third-party sources (Alpha Vantage) and may be delayed or incorrect.</li>
+                            <li><strong>User Risk:</strong> All investment decisions are your own responsibility. We accept no liability for financial losses.</li>
+                        </ul>
                     </div>
+
                     <div class="card doc-block">
-                        <h2>1. Scoring Logic Explained</h2>
-                        <p>How the 0-10 Thesis Score is calculated:</p>
-                        <table class="data-table" style="margin-top:10px">
-                            <thead><tr><th>Metric</th><th>Condition</th><th>Points</th></tr></thead>
-                            <tbody>
-                                <tr><td><strong>Growth</strong></td><td>Rev > 15% or EPS > 15%</td><td>+5</td></tr>
-                                <tr><td></td><td>Rev > 0% or EPS > 0%</td><td>+2</td></tr>
-                                <tr><td><strong>Quality</strong></td><td>ROE > 20%</td><td>+5</td></tr>
-                                <tr><td></td><td>ROE > 10%</td><td>+3</td></tr>
-                                <tr><td><strong>Safety</strong></td><td>Debt/Eq < 0.5</td><td>+6</td></tr>
-                                <tr><td></td><td>Debt/Eq < 1.0</td><td>+3</td></tr>
-                                <tr><td><strong>Value</strong></td><td>P/E < 15</td><td>+10</td></tr>
-                            </tbody>
-                        </table>
+                        <h2>🔑 Getting Your API Key</h2>
+                        <p>To pull live market data, this app requires a connection to Alpha Vantage.</p>
+                        <ol class="doc-list">
+                            <li>Visit <strong><a href="https://www.alphavantage.co/support/#api-key" target="_blank" style="color:var(--accent)">AlphaVantage.co</a></strong> (Opens in new tab).</li>
+                            <li>Enter your email to claim a <strong>Free API Key</strong>.</li>
+                            <li>Copy the key (e.g., <code>A1B2C3D4E5</code>).</li>
+                            <li>Paste it into the <strong>"API Connection"</strong> box in the bottom-left sidebar of this app and click <strong>Connect</strong>.</li>
+                        </ol>
                     </div>
+
                     <div class="card doc-block">
-                        <h2>2. Data Handling</h2>
-                        <p>If metrics show "0%" or scores are low, click <strong>Update All</strong>. The free API allows 5 calls/min, so updates are queued sequentially.</p>
+                        <h2>📚 How to Use EquitySense</h2>
+                        
+                        <div class="feature-item">
+                            <h4>1. Portfolio Dashboard</h4>
+                            <p><strong>What it does:</strong> Gives you a clear, distraction-free view of your net worth and asset allocation.</p>
+                            <p><strong>Key Feature:</strong> Use the <strong>"Blind Mode"</strong> (Eye Icon) to hide prices. This stops you from obsessing over daily fluctuations and helps you focus on business quality.</p>
+                        </div>
+
+                        <div class="feature-item">
+                            <h4>2. Profile & Health</h4>
+                            <p><strong>What it does:</strong> Diagnoses <em>You</em> before it diagnoses your stocks.</p>
+                            <p><strong>Benefit:</strong> By taking the "Investor DNA" test, the system learns your risk tolerance. It uses this to warn you if a position becomes too large ("Concentration Risk") or if a stock is too volatile for your personality.</p>
+                        </div>
+
+                        <div class="feature-item">
+                            <h4>3. The Firewall</h4>
+                            <p><strong>What it does:</strong> Acts as a rational filter for buy/sell decisions.</p>
+                            <p><strong>Benefit:</strong> It prevents emotional trading. Instead of selling because a price dropped, the Firewall asks: <em>"Is the Thesis Broken?"</em>. It only suggests an exit if the fundamental business metrics (Growth, Debt, Margins) have objectively deteriorated.</p>
+                        </div>
                     </div>
                 </div>
             </section>
 
-            <section id="about" class="view">
+			<section id="about" class="view">
                 <header class="top-bar"><h1>About</h1></header>
                 <div class="card about-card">
                     <div class="about-header">
-                        <div class="about-avatar"><i class="fa-solid fa-user-astronaut"></i></div>
-                        <div><h2>XXXX</h2><p class="text-muted">Lead Developer & Investor</p></div>
+                        <div class="about-avatar"><i class="fa-solid fa-brain"></i></div>
+                        <div>
+                            <h2>EquitySense</h2>
+                            <p class="text-muted">Rational Capital Management System</p>
+                        </div>
                     </div>
-                    <hr style="border-color:var(--border); margin: 1rem 0;">
-                    <div class="about-details">
-                        <p>EquitySense is a "Decision Accountability System". It forces you to define a thesis before buying and requires a structured reason before selling.</p>
+                    
+                    <hr style="border-color:var(--border); margin: 1.5rem 0;">
+                    
+                    <div class="about-details" style="text-align: left; max-width: 500px; margin: 0 auto;">
+                        <p><strong>The Problem:</strong> Most investors fail not because they lack intelligence, but because they lack discipline. Market noise triggers emotional responses—fear and greed—that destroy compounding.</p>
+                        
+                        <p style="margin-top:10px"><strong>The Solution:</strong> EquitySense acts as a <em>Commitment Device</em>. It forces you to write down your thesis before buying and mathematically validates that thesis before selling.</p>
+                        
+                        <div style="background:rgba(255,255,255,0.05); padding:15px; border-radius:8px; margin-top:20px;">
+                            <h4 style="margin-bottom:5px; color:var(--accent)">Privacy First</h4>
+                            <p style="font-size:0.85rem">This application runs 100% locally in your browser. Your financial data, API keys, and psychological profile are stored on your device and are never sent to any external server.</p>
+                        </div>
+
                         <br>
-                        <div class="contact-box"><i class="fa-solid fa-envelope"></i> yyy@gmail.com</div>
+                        <div class="contact-box" style="justify-content: center; width: 100%;">
+                            <i class="fa-solid fa-envelope"></i>
+                            <div>
+                                <small>Developer Contact</small><br>
+                                <strong>yyy@gmail.com</strong>
+                            </div>
+                        </div>
+                        
+                        <div class="version-tag">Build v2.4.0 (Stable)</div>
                     </div>
                 </div>
             </section>
@@ -263,12 +302,10 @@
                 <h1 style="margin:0;">EquitySense Report</h1>
                 <p id="pdfDate" style="color:#666; margin:5px 0 0 0;"></p>
             </div>
-            
             <div style="margin-bottom:30px;">
                 <h3 style="color:#222; border-bottom:1px solid #ccc; padding-bottom:5px;">Investor Profile</h3>
                 <div id="pdfProfile" style="background:#f9f9f9; padding:15px; border:1px solid #ddd;"></div>
             </div>
-
             <div style="margin-bottom:30px;">
                 <h3 style="color:#222; border-bottom:1px solid #ccc; padding-bottom:5px;">Portfolio Snapshot</h3>
                 <table style="width:100%; border-collapse:collapse; font-size:12px;">
@@ -278,17 +315,15 @@
                     <tbody id="pdfPortfolioBody"></tbody>
                 </table>
             </div>
-
             <div style="margin-bottom:30px;">
                 <h3 style="color:#222; border-bottom:1px solid #ccc; padding-bottom:5px;">Firewall Decisions</h3>
                 <table style="width:100%; border-collapse:collapse; font-size:12px;">
                     <thead style="background:#eee;">
-                        <tr><th style="padding:8px; border:1px solid #ddd; text-align:left;">Ticker</th><th style="padding:8px; border:1px solid #ddd; text-align:left;">Thesis Score</th><th style="padding:8px; border:1px solid #ddd; text-align:left;">Status</th><th style="padding:8px; border:1px solid #ddd; text-align:left;">Reason</th></tr>
+                        <tr><th style="padding:8px; border:1px solid #ddd; text-align:left;">Ticker</th><th style="padding:8px; border:1px solid #ddd; text-align:left;">Score</th><th style="padding:8px; border:1px solid #ddd; text-align:left;">Status</th><th style="padding:8px; border:1px solid #ddd; text-align:left;">Reason</th></tr>
                     </thead>
                     <tbody id="pdfFirewallBody"></tbody>
                 </table>
             </div>
-            
             <div style="margin-top:50px; text-align:center; font-size:10px; color:#999; border-top:1px solid #eee; padding-top:10px;">Generated by EquitySense Local Engine.</div>
         </div>
     </div>

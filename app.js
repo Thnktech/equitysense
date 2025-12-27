@@ -38,7 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // Default API Key Logic
-    const defaultKey = "A19LH4LBIC93A5X9"; // REPLACE WITH YOUR KEY IF YOU WANT IT HARDCODED
+    const defaultKey = "A19LH4LBIC93A5X9"; 
     let storedKey = sessionStorage.getItem('ep_api_key');
     if(!storedKey) {
         sessionStorage.setItem('ep_api_key', defaultKey);
@@ -62,7 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const getRebalanceLimits = (typeKey) => {
-        if (!typeKey || !InvestorTypes[typeKey]) return { max: 0.15 };
+        if (!typeKey) return { max: 0.15 };
         if (typeKey === "Concentrator" || typeKey === "Compounder") return { max: 0.25 };
         if (typeKey === "RiskMinimizer" || typeKey === "Stabilizer") return { max: 0.10 };
         return { max: 0.15 };
@@ -77,52 +77,31 @@ document.addEventListener('DOMContentLoaded', () => {
             UI.updateQueue(API.queue.length, true);
             API.process();
         },
-process: async () => {
+        process: async () => {
             if (API.isProcessing || API.queue.length === 0) {
                 UI.updateQueue(0, false);
                 return;
             }
             API.isProcessing = true;
             const task = API.queue.shift();
-            
-            // UI Update
-            UI.updateQueue(API.queue.length + 1, true);
-
             try {
                 let data;
-                // Check Cache Logic...
                 if(task.params.function === 'OVERVIEW' && Store.cache[task.params.symbol] && (Date.now() - Store.cache[task.params.symbol].ts < 86400000)) {
                     data = Store.cache[task.params.symbol].data;
                 } else {
-                    // FETCH
                     data = await API.fetchData(task.params);
-                    
-                    // --- DEBUG LOGGING ---
-                    console.log("API RAW RESPONSE:", data); 
-
-                    // Check for specific Alpha Vantage error keys
-                    if (data['Error Message']) throw new Error(`Invalid Ticker: ${task.params.symbol}`);
-                    if (data['Information']) throw new Error("Daily Limit / Premium Endpoint Reached");
-                    if (data['Note']) throw new Error("Rate Limit (5 calls/min) Reached");
-                    
-                    // Cache if valid
-                    if(task.params.function === 'OVERVIEW') {
+                    if(task.params.function === 'OVERVIEW' && !data.Note && !data.Information && data.Symbol) {
                         Store.cache[task.params.symbol] = { data: data, ts: Date.now() };
                         Store.saveCache();
                     }
                 }
                 task.callback(data);
-            } catch (err) { 
-                console.error("FULL ERROR DETAILS:", err);
-                // This alert will tell you exactly what is wrong
-                alert(`API Error for ${task.params.symbol}: ${err.message}`); 
-            }
+            } catch (err) { console.error(err); UI.toast("API Error", "error"); }
             
-            // Queue Timer
-            let countdown = 150; 
+            let countdown = 120; // 12s
             const timer = setInterval(() => {
                 countdown--;
-                UI.updateProgress((150 - countdown) / 150 * 100);
+                UI.updateProgress((120 - countdown) / 120 * 100);
                 if (countdown <= 0) {
                     clearInterval(timer);
                     UI.updateProgress(0);
@@ -156,14 +135,8 @@ process: async () => {
             document.getElementById('toastContainer').appendChild(el);
             setTimeout(() => el.remove(), 4000);
         },
-        updateQueue: (count, active) => {
-            const lbl = document.getElementById('apiQueueLabel');
-            if(lbl) lbl.innerText = active ? `Processing (${count})...` : 'Queue: Idle';
-        },
-        updateProgress: (pct) => {
-            const bar = document.getElementById('apiProgressBar');
-            if(bar) bar.style.width = `${pct}%`;
-        },
+        updateQueue: (count, active) => document.getElementById('apiQueueLabel').innerText = active ? `Processing (${count})...` : 'Queue: Idle',
+        updateProgress: (pct) => document.getElementById('apiProgressBar').style.width = `${pct}%`,
         fmtMoney: (n) => {
             let val = n; let code = 'USD';
             if (Store.settings.currency === 'EUR') { val = n * Store.exchangeRate; code = 'EUR'; }
@@ -176,6 +149,7 @@ process: async () => {
             if (!tbody) return;
             tbody.innerHTML = '';
             let totalInv = 0, totalVal = 0;
+
             Store.portfolio.forEach((stock, idx) => {
                 const sShares = parseFloat(stock.shares);
                 const sPrice = parseFloat(stock.price);
@@ -184,16 +158,37 @@ process: async () => {
                 const cost = sPrice * sShares;
                 let ret = 0;
                 if(sCurr && sCurr !== sPrice) ret = ((val - cost) / cost) * 100;
-                totalInv += cost; totalVal += val;
+                
+                totalInv += cost;
+                totalVal += val;
+
                 const tr = document.createElement('tr');
-                tr.innerHTML = `<td style="font-weight:700; font-family: var(--font-mono)">${stock.symbol}</td><td>${sShares}</td><td>${UI.fmtMoney(sPrice)}</td><td style="color:${stock.currentPrice?'':'var(--text-secondary)'}">${stock.currentPrice?UI.fmtMoney(sCurr):'Pending...'}</td><td>${UI.fmtMoney(val)}</td><td class="${ret>0?'positive':(ret<0?'negative':'')}">${UI.fmtPct(ret)}</td><td>${stock.conviction}</td><td><button class="btn-icon action-btn refresh-btn" data-index="${idx}" title="Update"><i class="fa-solid fa-rotate"></i></button><button class="btn-icon action-btn edit-btn" data-index="${idx}"><i class="fa-solid fa-pen"></i></button><button class="btn-icon action-btn delete-btn" data-id="${stock.id}" style="color:var(--danger)"><i class="fa-solid fa-trash"></i></button></td>`;
+                tr.innerHTML = `
+                    <td style="font-weight:700; font-family: var(--font-mono)">${stock.symbol}</td>
+                    <td>${sShares}</td>
+                    <td>${UI.fmtMoney(sPrice)}</td>
+                    <td style="color:${stock.currentPrice ? '' : 'var(--text-secondary)'}">
+                        ${stock.currentPrice ? UI.fmtMoney(sCurr) : 'Pending...'}
+                    </td>
+                    <td>${UI.fmtMoney(val)}</td>
+                    <td class="${ret > 0 ? 'positive' : (ret < 0 ? 'negative' : '')}">${UI.fmtPct(ret)}</td>
+                    <td>${stock.conviction}</td>
+                    <td>
+                        <button class="btn-icon action-btn refresh-btn" data-index="${idx}" title="Update Price"><i class="fa-solid fa-rotate"></i></button>
+                        <button class="btn-icon action-btn edit-btn" data-index="${idx}" title="Edit"><i class="fa-solid fa-pen"></i></button>
+                        <button class="btn-icon action-btn delete-btn" data-id="${stock.id}" style="color:var(--danger)" title="Delete"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                `;
                 tbody.appendChild(tr);
             });
+
             document.getElementById('totalInvested').innerText = UI.fmtMoney(totalInv);
             document.getElementById('totalValue').innerText = UI.fmtMoney(totalVal);
             const ret = totalInv > 0 ? ((totalVal - totalInv) / totalInv) * 100 : 0;
             const retEl = document.getElementById('totalReturn');
-            retEl.innerText = UI.fmtPct(ret); retEl.className = ret >= 0 ? 'positive' : 'negative';
+            retEl.innerText = UI.fmtPct(ret);
+            retEl.className = ret >= 0 ? 'positive' : 'negative';
+            
             App.updateCharts();
         }
     };
@@ -270,7 +265,7 @@ process: async () => {
                 document.getElementById('profileDashboard').classList.add('hidden');
                 document.getElementById('retakeQuizBtn').classList.add('hidden');
             });
-            document.getElementById('runHealthCheckBtn').addEventListener('click', ProfileEngine.runHealthCheck);
+            document.getElementById('runHealthCheckBtn').addEventListener('click', () => App.refreshAll());
             document.querySelectorAll('.goto-profile-btn').forEach(b => b.addEventListener('click', () => { document.querySelector('.nav-btn[data-tab="profile"]').click(); }));
         },
         renderQuiz: () => {
@@ -320,21 +315,52 @@ process: async () => {
                 if(val > 0) wContainer.innerHTML += `<span class="weight-tag">${key.toUpperCase()}: ${(val*100).toFixed(0)}%</span>`;
             }
         },
-        runHealthCheck: () => {
+		runHealthCheck: () => {
             const grid = document.getElementById('healthGrid');
             grid.innerHTML = '';
-            let brokenCap = 0, totalCap = 0;
+            let brokenCap = 0;
+            let totalCap = 0;
+            let maxConc = 0;
             
-            if(Store.portfolio.length === 0) return grid.innerHTML = '<div class="empty-state">Portfolio Empty</div>';
+            if(Store.portfolio.length === 0) {
+                grid.innerHTML = '<div class="empty-state">Portfolio Empty</div>';
+                // Reset metrics if empty
+                document.getElementById('sysConcRisk').innerText = "--";
+                document.getElementById('sysBrokenCap').innerText = "--";
+                document.getElementById('sysHealthGrade').innerText = "--";
+                return; 
+            }
 
+            // 1. Calculate Portfolio Totals & Concentration (Independent of Cache)
             Store.portfolio.forEach(stock => {
-                const val = (stock.currentPrice || stock.price) * stock.shares;
+                const price = stock.currentPrice || stock.price || 0;
+                const val = price * stock.shares;
                 totalCap += val;
+            });
+
+            // 2. Calculate Specific Concentration Risk
+            if (totalCap > 0) {
+                Store.portfolio.forEach(stock => {
+                    const price = stock.currentPrice || stock.price || 0;
+                    const val = price * stock.shares;
+                    const weight = val / totalCap;
+                    if(weight > maxConc) maxConc = weight;
+                });
+                // UPDATE UI IMMEDIATELY
+                document.getElementById('sysConcRisk').innerText = (maxConc*100).toFixed(1) + "%";
+            }
+
+            // 3. Run Fundamental Checks (Requires Cache)
+            let hasFundamentalData = false;
+            Store.portfolio.forEach(stock => {
                 const cached = Store.cache[stock.symbol];
+                const val = (stock.currentPrice || stock.price) * stock.shares;
                 
                 if(cached) {
+                    hasFundamentalData = true;
                     const { vec, raw } = ScoringEngine.calculateVector(cached.data, stock.pillars);
                     if(vec.thesis < 5) brokenCap += val;
+                    
                     const card = document.createElement('div');
                     card.className = 'health-card';
                     card.innerHTML = `<div class="health-score-box"><span class="health-score-val" style="color:${vec.thesis>6?'var(--success)':'var(--danger)'}">${vec.thesis}/10</span><small>Thesis</small></div><div class="health-details"><h4>${stock.symbol}</h4><div class="data-grid-mini"><div class="mini-item"><span class="mini-label">Growth</span><span class="mini-val">${raw.revG.toFixed(1)}%</span></div><div class="mini-item"><span class="mini-label">ROE</span><span class="mini-val">${raw.roe.toFixed(1)}%</span></div><div class="mini-item"><span class="mini-label">D/E</span><span class="mini-val">${raw.debt.toFixed(2)}</span></div></div></div>`;
@@ -344,11 +370,16 @@ process: async () => {
                 }
             });
             
-            if(totalCap > 0) {
+            // 4. Update Broken Capital Metric
+            if(totalCap > 0 && hasFundamentalData) {
                 document.getElementById('sysBrokenCap').innerText = ((brokenCap/totalCap)*100).toFixed(1) + "%";
                 let grade = brokenCap/totalCap > 0.2 ? (brokenCap/totalCap > 0.4 ? "C" : "B") : "A";
-                document.getElementById('sysHealthGrade').innerText = grade;
-                document.getElementById('sysHealthGrade').className = `grade-badge grade-${grade}`;
+                // Downgrade if concentration is dangerous (>25%)
+                if(maxConc > 0.25 && grade === "A") grade = "B"; 
+                
+                const gEl = document.getElementById('sysHealthGrade');
+                gEl.innerText = grade;
+                gEl.className = `grade-badge grade-${grade}`;
             }
         }
     };
@@ -356,6 +387,26 @@ process: async () => {
     const App = {
         charts: { alloc: null, perf: null },
         
+        // CENTRALIZED UPDATE
+        refreshAll: () => {
+            if (Store.portfolio.length === 0) return UI.toast("No stocks to update", "error");
+            UI.toast(`Queuing updates for ${Store.portfolio.length} stocks...`);
+            document.getElementById('lastUpdated').innerText = `Updating...`;
+
+            Store.portfolio.forEach((s, idx) => {
+                // 1. Update Price
+                App.updateSingleStock(idx, true);
+                
+                // 2. Update Fundamentals (Queue)
+                API.enqueue({ function: 'OVERVIEW', symbol: s.symbol }, () => {
+                    // Once data arrives, refresh the currently active tab
+                    const activeTab = document.querySelector('.view.active').id;
+                    if (activeTab === 'profile') ProfileEngine.runHealthCheck();
+                    if (activeTab === 'firewall') App.runFirewall();
+                });
+            });
+        },
+
         init: () => {
             try {
                 // FIXED ORDER: DOM must be ready before Charts
@@ -369,7 +420,7 @@ process: async () => {
                 
                 if(Store.getApiKey()) { 
                     document.getElementById('apiStatusDot').style.background = 'var(--success)'; 
-                    document.getElementById('apiKeyInput').value = Store.getApiKey(); // Pre-fill UI if key exists
+                    document.getElementById('apiKeyInput').value = Store.getApiKey();
                     API.fetchExchangeRate(); 
                 }
                 console.log("App Initialized Successfully");
@@ -391,23 +442,19 @@ process: async () => {
                     if(tab === 'profile') ProfileEngine.runHealthCheck();
                 });
             });
-            document.getElementById('refreshBtn').addEventListener('click', () => {
-                if(Store.portfolio.length === 0) return UI.toast("No stocks to update", "error");
-                UI.toast(`Queuing updates...`);
-                Store.portfolio.forEach((s, idx) => {
-                    App.updateSingleStock(idx, true);
-                    API.enqueue({ function: 'OVERVIEW', symbol: s.symbol }, () => {
-                        const activeTab = document.querySelector('.view.active').id;
-                        if(activeTab === 'profile') ProfileEngine.runHealthCheck();
-                        if(activeTab === 'firewall') App.runFirewall();
-                    });
-                });
-            });
-            
+
+            // UPDATED BUTTON LISTENERS to use refreshAll
+            document.getElementById('refreshBtn').addEventListener('click', () => App.refreshAll());
+            document.getElementById('runAuditBtn').addEventListener('click', () => App.refreshAll());
+
+            // ... (Rest of listeners remain same: currency, pdf, modals) ...
             document.getElementById('currencySwitch').addEventListener('change', (e) => { Store.settings.currency = e.target.checked ? 'EUR' : 'USD'; Store.saveSettings(); document.getElementById('currLabel').innerText = Store.settings.currency === 'EUR' ? 'EUR' : 'USD'; UI.renderPortfolio(); });
             document.getElementById('exportPdfBtn').addEventListener('click', () => {
-                const tpl = document.getElementById('pdf-template').cloneNode(true); // Clone
-                tpl.style.display = 'block'; // Make visible to renderer
+                const tpl = document.getElementById('pdf-template').cloneNode(true);
+                tpl.id = 'pdf-render-staging';
+                tpl.style.display = 'block'; 
+                tpl.style.position = 'absolute'; tpl.style.left = '-9999px';
+                document.body.appendChild(tpl);
                 
                 tpl.querySelector('#pdfDate').innerText = new Date().toLocaleDateString();
                 tpl.querySelector('#pdfProfile').innerHTML = Store.profile ? 
@@ -432,30 +479,17 @@ process: async () => {
                 });
 
                 const opt = { margin: 0.5, filename: `EquitySense_Report_${new Date().toISOString().split('T')[0].replace(/:/g,"-")}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' } };
-                html2pdf().set(opt).from(tpl).save();
-            });
-            
-            // Firewall Filters
-            document.querySelectorAll('.filter-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    App.runFirewall(btn.getAttribute('data-filter'));
-                });
+                html2pdf().set(opt).from(tpl).save().then(() => { document.body.removeChild(tpl); });
             });
 
-            // Modal & Stock Actions
+            // ... (Modal logic) ...
             const modal = document.getElementById('stockModal');
             document.getElementById('addStockBtn').addEventListener('click', () => { 
                 document.getElementById('stockForm').reset(); 
                 document.getElementById('editIndex').value = ''; 
-                // Auto-Select Pillars based on Profile
-                if(Store.profile && Store.profile.type) {
+                if(Store.profile && Store.profile.type && InvestorTypes[Store.profile.type]) {
                     const type = InvestorTypes[Store.profile.type];
-                    if(type.pillars) type.pillars.forEach(p => { 
-                        const cb = document.querySelector(`input[value="${p}"]`);
-                        if(cb) cb.checked = true;
-                    });
+                    if(type.pillars) type.pillars.forEach(p => { const cb = document.querySelector(`input[value="${p}"]`); if(cb) cb.checked = true; });
                 }
                 modal.classList.add('open'); 
             });
@@ -480,7 +514,6 @@ process: async () => {
                 else if(btn.classList.contains('refresh-btn')) App.updateSingleStock(idx);
             });
             document.getElementById('exportBtn').addEventListener('click', () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify({ portfolio: Store.portfolio, profile: Store.profile })], {type: 'application/json'})); a.download = `portfolio_${Date.now()}.json`; a.click(); });
-            // FIXED IMPORT
             document.getElementById('importReplace').addEventListener('change', (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
@@ -488,21 +521,24 @@ process: async () => {
                 reader.onload = (ev) => {
                     try {
                         const json = JSON.parse(ev.target.result);
-                        // Support old array format or new object format
                         const newPortfolio = Array.isArray(json) ? json : (json.portfolio || []);
                         Store.portfolio = newPortfolio;
                         if(json.profile) Store.profile = json.profile;
-                        Store.savePortfolio();
-                        Store.saveProfile();
-                        UI.renderPortfolio();
-                        UI.toast("Import Successful");
+                        Store.savePortfolio(); Store.saveProfile(); UI.renderPortfolio(); UI.toast("Import Successful");
                     } catch (err) { console.error(err); UI.toast("Invalid File", "error"); }
                 };
                 reader.readAsText(file);
                 e.target.value = ''; // Reset input to allow re-selection
             });
             
-            document.getElementById('runAuditBtn').addEventListener('click', () => App.runFirewall());
+            // Firewall Filters
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    App.runFirewall(btn.getAttribute('data-filter'));
+                });
+            });
         },
 
         updateSingleStock: (idx, isBulk = false) => {
@@ -576,7 +612,7 @@ process: async () => {
             App.charts.alloc.data.labels = labels; App.charts.alloc.data.datasets[0].data = data; App.charts.alloc.data.datasets[0].backgroundColor = colors; App.charts.alloc.update();
             App.charts.perf.data.labels = labels;
             App.charts.perf.data.datasets[0].data = Store.portfolio.map(s => { const cost = parseFloat(s.price) * parseFloat(s.shares); const curr = (s.currentPrice ? parseFloat(s.currentPrice) : parseFloat(s.price)) * parseFloat(s.shares); return ((curr - cost) / cost) * 100; });
-            App.charts.perf.data.datasets[0].backgroundColor = colors;
+            App.charts.perf.data.datasets[0].backgroundColor = colors; // FIXED COLORS FOR BAR CHART
             App.charts.perf.update();
         }
     };
