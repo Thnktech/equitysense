@@ -1,11 +1,8 @@
-# --- Local-dev convenience ---
-# The [server] section is only honored when running locally. Streamlit
-# Community Cloud ignores it and uses its own port + headless setup.
-[server]
-port = 8502
-headless = false
-
-# --- Theme (applies everywhere) ---
+# Theme is honored both locally and on Streamlit Community Cloud.
+# Server settings (port / headless) are intentionally NOT pinned here —
+# Streamlit Cloud needs port 8501 and headless mode, and pinning either
+# in config.toml breaks the cloud's health check. For a custom local
+# port use:  streamlit run app.py --server.port 8502
 [theme]
 base = "dark"
 primaryColor = "#4FC3F7"
