@@ -13,6 +13,8 @@ data API, while still working offline if Wikipedia is unreachable.
 """
 from __future__ import annotations
 
+import csv
+from pathlib import Path
 from typing import Callable, Iterable
 
 import pandas as pd
@@ -24,97 +26,48 @@ log = get_logger("ticker_loader")
 
 
 _UNIVERSE_TTL_SECONDS = 60 * 60 * 24  # 24h
+_ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets"
+
+
+def _load_ticker_csv(filename: str) -> list[str]:
+    """Read a one-column ticker CSV from ``assets/``. Empty list on failure."""
+    path = _ASSETS_DIR / filename
+    try:
+        with path.open(encoding="utf-8") as f:
+            reader = csv.reader(f)
+            rows = [r[0].strip() for r in reader if r and r[0].strip()]
+        # Drop header if present.
+        if rows and rows[0].lower() in ("symbol", "ticker", "code"):
+            rows = rows[1:]
+        return [r for r in rows if r]
+    except Exception as exc:
+        log.warning("could not read %s: %s", path, exc)
+        return []
 
 
 # ======================================================================
 # Hardcoded fallbacks — used when Wikipedia fetch fails
 # ======================================================================
 
-# ----- USA: ~50 mega-caps from S&P 500 -----
-USA_FALLBACK: list[str] = [
-    "AAPL", "MSFT", "GOOGL", "GOOG", "AMZN", "META", "NVDA", "TSLA",
-    "BRK-B", "JPM", "V", "JNJ", "WMT", "PG", "MA", "HD", "DIS", "BAC",
-    "ADBE", "CRM", "NFLX", "PEP", "KO", "MRK", "PFE", "INTC", "AMD",
-    "ORCL", "CSCO", "T", "VZ", "XOM", "CVX", "NKE", "MCD", "COST",
-    "ABT", "TMO", "AVGO", "QCOM", "TXN", "LIN", "HON", "UNH", "LLY",
-    "GS", "MS", "BLK", "AXP", "BA", "CAT", "DE", "UPS", "RTX", "LMT",
-]
+# ----- USA: full S&P 500 from a shipped CSV snapshot -----
+# We ship ``assets/sp500.csv`` so the deployed app has the full universe
+# even when Wikipedia is unreachable from the host. Refresh by replacing
+# the CSV (or letting the live Wikipedia fetcher repopulate the cache).
+USA_FALLBACK: list[str] = _load_ticker_csv("sp500.csv")
 
-# ----- Europe: ~80 blue chips with proper yfinance suffixes -----
-EUROPE_FALLBACK: list[str] = [
-    # Germany .DE
-    "SAP.DE", "SIE.DE", "ALV.DE", "BAS.DE", "BMW.DE", "MBG.DE",
-    "DTE.DE", "VOW3.DE", "BAYN.DE", "ADS.DE", "MUV2.DE", "IFX.DE",
-    "MTX.DE", "FRE.DE", "DPW.DE", "RWE.DE", "EOAN.DE", "DBK.DE",
-    # UK .L
-    "SHEL.L", "AZN.L", "HSBA.L", "ULVR.L", "BP.L", "GSK.L", "RIO.L",
-    "BARC.L", "LLOY.L", "REL.L", "DGE.L", "BATS.L", "LSEG.L", "CPG.L",
-    "ABF.L", "NWG.L", "EXPN.L", "AAL.L", "AV.L", "GLEN.L", "IMB.L",
-    "CRDA.L", "PRU.L", "TSCO.L", "BT-A.L",
-    # France .PA
-    "MC.PA", "OR.PA", "AIR.PA", "BNP.PA", "RMS.PA", "CDI.PA", "TTE.PA",
-    "SAN.PA", "SU.PA", "DG.PA", "CS.PA", "CAP.PA", "BN.PA", "KER.PA",
-    "ML.PA", "EL.PA",
-    # Switzerland .SW
-    "NESN.SW", "NOVN.SW", "ROG.SW", "ZURN.SW", "UBSG.SW", "ABBN.SW",
-    "GIVN.SW", "LOGN.SW", "CFR.SW",
-    # Netherlands .AS
-    "ASML.AS", "ADYEN.AS", "PRX.AS", "INGA.AS", "AD.AS", "AKZA.AS",
-    # Italy .MI
-    "ENEL.MI", "STLA.MI", "ENI.MI", "ISP.MI", "UCG.MI", "RACE.MI",
-    "G.MI",
-    # Spain .MC
-    "SAN.MC", "BBVA.MC", "IBE.MC", "ITX.MC", "TEF.MC",
-    # Sweden .ST
-    "VOLV-B.ST", "ATCO-A.ST", "ERIC-B.ST", "INVE-B.ST",
-]
+# ----- Europe: DAX/FTSE/CAC/AEX large-caps from a shipped CSV snapshot -----
+EUROPE_FALLBACK: list[str] = _load_ticker_csv("europe.csv")
 
-# ----- India: ~50 NSE blue chips (.NS) -----
-INDIA_FALLBACK: list[str] = [
-    "RELIANCE.NS", "TCS.NS", "HDFCBANK.NS", "INFY.NS", "ICICIBANK.NS",
-    "HINDUNILVR.NS", "ITC.NS", "SBIN.NS", "BHARTIARTL.NS", "KOTAKBANK.NS",
-    "LT.NS", "AXISBANK.NS", "ASIANPAINT.NS", "MARUTI.NS", "BAJFINANCE.NS",
-    "HCLTECH.NS", "WIPRO.NS", "SUNPHARMA.NS", "TITAN.NS", "ULTRACEMCO.NS",
-    "NESTLEIND.NS", "POWERGRID.NS", "NTPC.NS", "ONGC.NS", "TATAMOTORS.NS",
-    "TATASTEEL.NS", "JSWSTEEL.NS", "ADANIENT.NS", "DRREDDY.NS", "CIPLA.NS",
-    "BAJAJFINSV.NS", "GRASIM.NS", "COALINDIA.NS", "M&M.NS", "EICHERMOT.NS",
-    "BPCL.NS", "BRITANNIA.NS", "HINDALCO.NS", "HEROMOTOCO.NS", "ADANIPORTS.NS",
-    "INDUSINDBK.NS", "TECHM.NS", "DIVISLAB.NS", "IOC.NS", "GAIL.NS",
-    "HDFCLIFE.NS", "BAJAJ-AUTO.NS", "SBILIFE.NS", "APOLLOHOSP.NS",
-    "TATACONSUM.NS",
-]
+# ----- India: Nifty 50 from a shipped CSV snapshot -----
+INDIA_FALLBACK: list[str] = _load_ticker_csv("nifty50.csv")
 
-# ----- Japan: ~120 Nikkei 225 large caps (.T) -----
+# ----- Japan: Nikkei 225 large-caps from a shipped CSV snapshot -----
 # The Nikkei 225 wiki page lists constituents only as a navbar text
-# block (not a parseable table), so we maintain this list manually.
-JAPAN_FALLBACK: list[str] = [
-    "7203.T", "6758.T", "6861.T", "9984.T", "8306.T", "9432.T", "8035.T",
-    "6098.T", "4063.T", "6367.T", "7974.T", "8316.T", "9433.T", "4502.T",
-    "4543.T", "6594.T", "6902.T", "7267.T", "7751.T", "8001.T", "8031.T",
-    "8058.T", "8411.T", "9020.T", "9022.T", "6273.T", "6981.T", "8801.T",
-    "8802.T", "4452.T", "4568.T", "4661.T", "4901.T", "5108.T", "5401.T",
-    "6326.T", "6501.T", "6503.T", "6701.T", "6752.T", "6954.T", "6971.T",
-    "7011.T", "7261.T", "7269.T", "7270.T", "7733.T", "7832.T", "8002.T",
-    "8053.T", "8113.T", "8267.T", "8591.T", "8604.T", "8725.T", "8766.T",
-    "8830.T", "9101.T", "9501.T", "9503.T", "9531.T", "9613.T", "9735.T",
-    "9766.T", "9983.T", "4307.T",
-    # Additional Nikkei 225 names
-    "2502.T", "2503.T", "2802.T", "2914.T", "3382.T", "3402.T", "3407.T",
-    "4005.T", "4042.T", "4151.T", "4188.T", "4324.T", "4503.T", "4506.T",
-    "4507.T", "4519.T", "4523.T", "4528.T", "4578.T", "4631.T", "4704.T",
-    "4751.T", "4755.T", "4911.T", "5019.T", "5020.T", "5101.T", "5201.T",
-    "5202.T", "5214.T", "5232.T", "5233.T", "5301.T", "5332.T", "5333.T",
-    "5406.T", "5411.T", "5541.T", "5631.T", "5703.T", "5706.T", "5707.T",
-    "5711.T", "5713.T", "5714.T", "5801.T", "5802.T", "5803.T", "6103.T",
-    "6113.T", "6178.T", "6301.T", "6302.T", "6305.T", "6361.T", "6471.T",
-    "6472.T", "6473.T", "6479.T", "6502.T", "6504.T", "6506.T", "6645.T",
-    "6674.T", "6724.T", "6753.T", "6762.T", "6770.T", "6841.T", "6857.T",
-    "6920.T", "6952.T", "6976.T", "6988.T", "7004.T", "7012.T", "7186.T",
-    "7201.T", "7211.T", "7259.T", "7272.T", "7731.T", "7741.T", "7762.T",
-    "7912.T", "8015.T", "8053.T", "8233.T", "8252.T", "8253.T", "8801.T",
-    "8830.T", "9007.T", "9008.T", "9009.T", "9021.T", "9064.T", "9301.T",
-    "9412.T", "9602.T", "9684.T", "9697.T", "9706.T", "9831.T",
-]
+# block (not a parseable table), so we maintain this snapshot manually.
+JAPAN_FALLBACK: list[str] = _load_ticker_csv("nikkei225.csv")
+
+# ----- Rest of World: curated large-caps across CA/AU/HK/KR/BR/SG/MX -----
+WORLD_FALLBACK: list[str] = _load_ticker_csv("world.csv")
 
 
 # ======================================================================
@@ -316,8 +269,19 @@ def get_japan_tickers() -> list[str]:
     )
 
 
+def get_world_tickers() -> list[str]:
+    """Rest-of-world large caps (CA/AU/HK/KR/BR/SG/MX).
+
+    No live fetcher — the curated CSV snapshot in ``assets/world.csv``
+    is the source of truth. Refresh by editing that CSV.
+    """
+    return _load_universe(
+        "world", lambda: [], WORLD_FALLBACK, min_count=10**9
+    )
+
+
 def get_global_tickers() -> list[str]:
-    """A balanced cross-section of all four regions (~120 tickers)."""
+    """A balanced cross-section of all regions (~150 tickers)."""
     seen: set[str] = set()
     out: list[str] = []
 
@@ -333,8 +297,9 @@ def get_global_tickers() -> list[str]:
 
     _add(get_usa_tickers(),     50)
     _add(get_europe_tickers(),  30)
-    _add(get_india_tickers(),   25)
+    _add(get_india_tickers(),   20)
     _add(get_japan_tickers(),   25)
+    _add(get_world_tickers(),   30)
     return out
 
 
@@ -346,6 +311,7 @@ REGION_LOADERS: dict[str, Callable[[], list[str]]] = {
     "Europe": get_europe_tickers,
     "India":  get_india_tickers,
     "Japan":  get_japan_tickers,
+    "World":  get_world_tickers,
     "Global": get_global_tickers,
 }
 
@@ -364,6 +330,16 @@ def get_tickers_for_regions(regions: Iterable[str]) -> list[str]:
     return sorted(bag)
 
 
+_EUROPE_SUFFIXES = {
+    "DE", "L", "PA", "AS", "SW", "MI", "MC", "ST", "BR", "LS", "OL",
+    "HE", "VI", "CO", "IR", "WA",
+}
+_WORLD_SUFFIXES = {
+    "TO", "V", "AX", "HK", "KS", "KQ", "SA", "SI", "MX", "NZ", "JK",
+    "BK", "TW", "SS", "SZ",
+}
+
+
 def get_region_for_ticker(ticker: str) -> str:
     """Best-effort region classification from a ticker symbol."""
     t = ticker.strip().upper()
@@ -372,5 +348,10 @@ def get_region_for_ticker(ticker: str) -> str:
     if t.endswith(".T"):
         return "Japan"
     if "." in t:
-        return "Europe"
+        suffix = t.rsplit(".", 1)[-1]
+        if suffix in _EUROPE_SUFFIXES:
+            return "Europe"
+        if suffix in _WORLD_SUFFIXES:
+            return "World"
+        return "Europe"  # unknown suffix — keep prior default
     return "USA"

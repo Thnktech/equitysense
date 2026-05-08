@@ -78,6 +78,6 @@ RISK_PROFILES = ["Conservative", "Moderate", "Aggressive"]
 
 HOLDING_PERIODS = ["Days", "Weeks", "Months", "Years"]
 
-MARKET_REGIONS = ["USA", "Europe", "India", "Japan", "Global"]
+MARKET_REGIONS = ["USA", "Europe", "India", "Japan", "World", "Global"]
 
 MODES = ["BUY", "SELL"]
