@@ -8,3 +8,5 @@ ta>=0.11.0
 streamlit-aggrid>=0.3.4
 joblib>=1.3.0
 requests>=2.31.0
+# lxml is needed for pd.read_html (Wikipedia ticker fetch).
+lxml>=5.0.0
