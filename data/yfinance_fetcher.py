@@ -63,6 +63,7 @@ def _fetch_history(ticker: str, period: str, interval: str) -> pd.DataFrame:
             progress=False,
             auto_adjust=True,
             threads=False,
+            multi_level_index=False,
         )
     except Exception as exc:
         log.warning("history download failed for %s: %s", ticker, exc)
@@ -75,6 +76,7 @@ def _fetch_history(ticker: str, period: str, interval: str) -> pd.DataFrame:
     # ticker — flatten that so downstream code can rely on simple names.
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
+    df = df.loc[:, ~df.columns.duplicated()]
 
     df = df.rename(columns=str.title)
     df.index = pd.to_datetime(df.index)
